@@ -3,7 +3,24 @@ PyTorch implementation of 'Deep Compression: Compressing Deep Neural Networks wi
 
 ### Dependence
 
-- pytorch
+- python3.7+
+- pytorch, torchvision
+- numpy
+
+### Structure
+
+- data
+- baseline
+  - model
+  - net
+- pruning
+  - 
+- util
+  - log.py
+
+### Pruning
+
+
 
 ### Usage
 
