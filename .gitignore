@@ -7,10 +7,9 @@ __pycache__/
 *.so
 
 # data
-baseline/result/
-pruning/result/
-data/
-
+!/baseline/result/.gitkeep 
+!/pruning/result/.gitkeep 
+!/data/.gitkeep 
 
 
 # Distribution / packaging
