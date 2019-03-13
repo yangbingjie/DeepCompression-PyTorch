@@ -1,7 +1,7 @@
 import math
 import torch.nn as nn
 import torch.nn.functional as F
-from pruning.function.MaskLinearFunction import MaskLinearModule, PruneModule
+from pruning.function.Prune import MaskLinearModule, PruneModule
 
 class LeNet5(PruneModule):
     def __init__(self):
