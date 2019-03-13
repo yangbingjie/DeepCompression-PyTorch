@@ -27,7 +27,7 @@ classes = ('0', '1', '2', '3',
 criterion = nn.CrossEntropyLoss()
 
 retrain_num = 3
-path = './result/AlexNet'
+path = './pruning/result/AlexNet'
 net = LeNet5()
 train(net, trainloader=trainloader, criterion=criterion)
 torch.save(net.state_dict(), path + '0')
