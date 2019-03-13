@@ -51,6 +51,7 @@ def train(testloader, is_retrain=True, retrain_num=0, path='./result/Untitled'):
                 print('[%d, %5d] loss: %.3f' %
                       (epoch + 1, i + 1, running_loss / 2000))
                 running_loss = 0.0
+                break
 
     path = path + str(retrain_num)
     torch.save(net.state_dict(), path)
