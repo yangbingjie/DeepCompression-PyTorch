@@ -7,8 +7,8 @@ __pycache__/
 *.so
 
 # data
-baseline/result
-pruning/result
+baseline/result/
+pruning/result/
 data/
 
 
