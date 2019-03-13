@@ -52,6 +52,6 @@ for epoch in range(1):  # loop over the dataset multiple times
                   (epoch + 1, i + 1, running_loss / 2000))
             running_loss = 0.0
 
-path = './model/LeNet'
+path = './result/LeNet'
 torch.save(net.state_dict(), path)
 log.log_file_size(path, 'K')

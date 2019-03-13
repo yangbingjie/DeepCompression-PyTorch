@@ -6,18 +6,30 @@ import torchvision.transforms as transforms
 from pruning.net.LeNet5 import LeNet5
 import util.log as log
 
+def test(testloader, net):
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for data in testloader:
+            images, labels = data
+            outputs = net(images)
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+    print('Accuracy of the network on the test images: %d %%' % (100 * correct / total))
 
-def train(is_retrain=True, retrain_num=0, path='./model/Untitled'):
+
+def train(testloader, is_retrain=True, retrain_num=0, path='./result/Untitled'):
     net = LeNet5()
     if is_retrain:
         print('=========== Retrain:', retrain_num, ' =========')
-        net.load_state_dict(torch.load(path + str(retrain_num)))
+        net.load_state_dict(torch.load(path + str(retrain_num - 1)))
         net.eval()
     else:
         print('=========== Train Start ===========')
 
-
-    optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+    # weight_decay is L2 regularization
+    optimizer = optim.SGD(net.parameters(), lr=0.001, weight_decay=1e-5)
     for epoch in range(1):  # loop over the dataset multiple times
         running_loss = 0.0
         for i, data in enumerate(trainloader, 0):
@@ -39,12 +51,15 @@ def train(is_retrain=True, retrain_num=0, path='./model/Untitled'):
                 print('[%d, %5d] loss: %.3f' %
                       (epoch + 1, i + 1, running_loss / 2000))
                 running_loss = 0.0
-                break
 
-    path = path + str(retrain_num + 1)
+    path = path + str(retrain_num)
     torch.save(net.state_dict(), path)
     log.log_file_size(path, 'K')
     print('=========== Train End ===========')
+    print('=========== Prune Start ===========')
+    net.prune_layer()
+    test(testloader, net)
+    print('=========== Prune End ===========')
 
 
 transform = transforms.Compose(
@@ -68,12 +83,12 @@ classes = ('0', '1', '2', '3',
 criterion = nn.CrossEntropyLoss()
 
 retrain_num = 3
-path = './model/LeNet'
+path = './result/LeNet'
 
-train(is_retrain=False, path=path)
+train(testloader, is_retrain=False, path=path)
 
 for j in range(retrain_num):
-    train(retrain_num=j, path=path)
+    train(testloader, retrain_num=j + 1, path=path)
 
 
 
