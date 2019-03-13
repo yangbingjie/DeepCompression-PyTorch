@@ -6,17 +6,21 @@ from pruning.net.LeNet5 import LeNet5
 from pruning.function.helper import train, test
 import util.log as log
 
-transform = transforms.Compose(
-    [transforms.ToTensor(),
-     transforms.Normalize([0.5], [0.5])])
+normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225])
+transform = transforms.Compose([
+            transforms.RandomResizedCrop(224),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            normalize,
+        ])
 
-trainset = torchvision.datasets.MNIST(root='../data', train=True,
-                                      download=True, transform=transform)
+trainset = torchvision.datasets.ImageFolder(root='../data/tiny-imagenet-200/train', transform=transform)
 
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=4,
                                           shuffle=True, num_workers=2)
 
-testset = torchvision.datasets.MNIST(root='../data', train=False,
+testset = torchvision.datasets.MNIST(root='../data/tiny-imagenet-200/test', train=False,
                                      download=True, transform=transform)
 testloader = torch.utils.data.DataLoader(testset, batch_size=4,
                                          shuffle=False, num_workers=2)

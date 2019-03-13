@@ -35,19 +35,33 @@ class AlexNet(PruneModule):
         return x
 
     def compute_dropout_rate(self):
-        fc_list = [self.fc1, self.fc2]
+        fc_list = [self.fc1, self.fc2, self.fc2]
         for index in range(0, 2):
-            layer = fc_list[index]
-            prune_num = 0
-            basic = 0
-            if layer.bias is not None:
-                bias_arr = (layer.bias_mask.data.cpu().numpy())
-                prune_num = bias_arr.sum()
-                basic = bias_arr.size
-            weight_arr = (layer.weight_mask.data.cpu().numpy())
-            prune_num = prune_num + weight_arr.sum()
-            basic = basic + weight_arr.size
-            p = 0.5 * math.sqrt(prune_num / basic)
+            # Last Layer
+            last_layer = fc_list[index]
+            last_prune_num = 0
+            last_total_num = 0
+            if last_layer.bias is not None:
+                bias_arr = (last_layer.bias_mask.data.cpu().numpy())
+                last_prune_num = bias_arr.sum()
+                last_total_num = bias_arr.size
+            weight_arr = (last_layer.weight_mask.data.cpu().numpy())
+            last_prune_num += weight_arr.sum()
+            last_total_num += + weight_arr.size
+
+            # Next Layer
+            next_layer = fc_list[index + 1]
+            next_prune_num = 0
+            next_total_num = 0
+            if next_layer.bias is not None:
+                bias_arr = (next_layer.bias_mask.data.cpu().numpy())
+                next_prune_num = bias_arr.sum()
+                next_total_num = bias_arr.size
+            weight_arr = (next_layer.weight_mask.data.cpu().numpy())
+            next_prune_num += weight_arr.sum()
+            next_total_num += weight_arr.size
+
+            p = 0.5 * math.sqrt(last_prune_num * next_prune_num / last_total_num * next_total_num)
             print('The drop out rate is:', p)
             self.drop_rate[index] = p
 
