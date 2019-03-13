@@ -9,6 +9,7 @@ __pycache__/
 # data
 baseline/result
 pruning/result
+data/
 
 
 
