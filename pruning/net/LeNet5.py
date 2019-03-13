@@ -27,9 +27,9 @@ class LeNet5(PruneModule):
         return x
 
     def compute_dropout_rate(self):
-        temp_fc_list = [self.fc1, self.fc2]
+        fc_list = [self.fc1, self.fc2]
         for index in range(0, 2):
-            layer = temp_fc_list[index]
+            layer = fc_list[index]
             prune_num = 0
             basic = 0
             if layer.bias is not None:

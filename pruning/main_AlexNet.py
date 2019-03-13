@@ -2,7 +2,7 @@ import torch
 import torchvision
 import torch.nn as nn
 import torchvision.transforms as transforms
-from pruning.net.LeNet5 import LeNet5
+from pruning.net.AlexNet import AlexNet
 from pruning.function.helper import train, test
 
 transform = transforms.Compose(
@@ -27,7 +27,7 @@ criterion = nn.CrossEntropyLoss()
 
 retrain_num = 3
 path = './result/LeNet'
-net = LeNet5()
+net = AlexNet()
 train(net, trainloader=trainloader, criterion=criterion, is_retrain=False, path=path)
 test(testloader, net)
 
