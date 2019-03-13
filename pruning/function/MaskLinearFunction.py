@@ -3,9 +3,9 @@ import torch
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as Function
+from torch.nn.modules.module import Module
 
-
-class MaskLinearModule(nn.Module):
+class MaskLinearModule(Module):
     def __init__(self, in_features, out_features, bias=True):
         super(MaskLinearModule, self).__init__()
         self.in_features = in_features
@@ -50,6 +50,7 @@ class MaskLinearModule(nn.Module):
             self.bias.data = torch.from_numpy(bias * new_bias_mask).to(bias_dev)
             self.bias_mask.data = torch.from_numpy(new_bias_mask).to(bias_mask_dev)
 
+class PruneModule(Module):
     def prune_layer(self, sensitivity=0.5):
         for name, module in self.named_modules():
             if name in ['fc1', 'fc2', 'fc3']:

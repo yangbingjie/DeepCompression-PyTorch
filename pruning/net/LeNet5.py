@@ -1,9 +1,9 @@
 import math
 import torch.nn as nn
 import torch.nn.functional as F
-from pruning.function.MaskLinearFunction import MaskLinearModule
+from pruning.function.MaskLinearFunction import MaskLinearModule, PruneModule
 
-class LeNet5(MaskLinearModule):
+class LeNet5(PruneModule):
     def __init__(self):
         super(LeNet5, self).__init__()
         self.conv1 = nn.Conv2d(1, 20, 5, 1)
