@@ -1,4 +1,3 @@
-import math
 import torch.nn as nn
 import torch.nn.functional as F
 from pruning.function.Prune import MaskLinearModule, PruneModule
@@ -20,28 +19,10 @@ class LeNet5(PruneModule):
         x = F.relu(self.conv2(x))
         x = F.max_pool2d(x, 2, 2)
         x = x.view(-1, 4 * 4 * 50)
-        x = nn.functional.dropout(x, p=self.drop_rate[0], training=True, inplace=False)
         x = F.relu(self.fc1(x))
-        x = nn.functional.dropout(x, p=self.drop_rate[1], training=True, inplace=False)
         x = self.fc2(x)
         return x
 
-    def compute_dropout_rate(self):
-        fc_list = [self.fc1, self.fc2]
-        for index in range(0, 2):
-            layer = fc_list[index]
-            prune_num = 0
-            basic = 0
-            if layer.bias is not None:
-                bias_arr = (layer.bias_mask.data.cpu().numpy())
-                prune_num = bias_arr.sum()
-                basic = bias_arr.size
-            weight_arr = (layer.weight_mask.data.cpu().numpy())
-            prune_num = prune_num + weight_arr.sum()
-            basic = basic + weight_arr.size
-            p = 0.5 * math.sqrt(prune_num / basic)
-            print('The drop out rate is:', p)
-            self.drop_rate[index] = p
 
     def num_flat_features(self, x):
         size = x.size()[1:]

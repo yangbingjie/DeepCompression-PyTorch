@@ -41,7 +41,6 @@ class MaskLinearModule(Module):
         weight_mask = self.weight_mask.data.cpu().numpy()
         bias = self.bias.data.cpu().numpy()
         bias_mask = self.bias_mask.data.cpu().numpy()
-
         new_weight_mask = np.where(abs(weight) < threshold, 0, weight_mask)
         self.weight.data = torch.from_numpy(weight * new_weight_mask).to(weight_dev)
         self.weight_mask.data = torch.from_numpy(new_weight_mask).to(weight_mask_dev)

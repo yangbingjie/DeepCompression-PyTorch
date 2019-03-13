@@ -1,6 +1,5 @@
 import torch
 import torch.optim as optim
-import util.log as log
 
 def test(testloader, net):
     correct = 0
@@ -15,15 +14,7 @@ def test(testloader, net):
     print('Accuracy of the network on the test images: %d %%' % (100 * correct / total))
 
 
-def train(net, trainloader, criterion, is_retrain=True, retrain_num=0, path='./result/Untitled'):
-    if is_retrain:
-        print('=========== Retrain:', retrain_num, ' =========')
-        net.load_state_dict(torch.load(path + str(retrain_num - 1)))
-        net.eval()
-        net.compute_dropout_rate()
-    else:
-        print('=========== Train Start ===========')
-
+def train(net, trainloader, criterion):
     # weight_decay is L2 regularization
     optimizer = optim.SGD(net.parameters(), lr=0.001, weight_decay=1e-5)
     for epoch in range(1):  # loop over the dataset multiple times
@@ -48,9 +39,3 @@ def train(net, trainloader, criterion, is_retrain=True, retrain_num=0, path='./r
                       (epoch + 1, i + 1, running_loss / 2000))
                 running_loss = 0.0
                 break
-
-    net.prune_layer()
-    path = path + str(retrain_num)
-    torch.save(net.state_dict(), path)
-    log.log_file_size(path, 'K')
-    print('=========== Train End ===========')

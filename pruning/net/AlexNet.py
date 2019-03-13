@@ -1,55 +1,38 @@
 import math
-import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from pruning.function.Prune import MaskLinearModule, PruneModule
 
 
 class AlexNet(PruneModule):
     def __init__(self):
         super(AlexNet, self).__init__()
-        self.conv1 = torch.nn.Sequential(
-            torch.nn.Conv2d(3, 96, 11, 4, 0),
-            torch.nn.ReLU(),
-            torch.nn.MaxPool2d(3,2)
-        )
-        self.conv2 = torch.nn.Sequential(
-            torch.nn.Conv2d(96, 256, 5, 1, 2),
-            torch.nn.ReLU(),
-            torch.nn.MaxPool2d(3,2)
-        )
-        self.conv3 = torch.nn.Sequential(
-            torch.nn.Conv2d(256,384, 3, 1, 1),
-            torch.nn.ReLU(),
-        )
-        self.conv4 = torch.nn.Sequential(
-            torch.nn.Conv2d(384,384, 3, 1, 1),
-            torch.nn.ReLU(),
-        )
-        self.conv5 = torch.nn.Sequential(
-            torch.nn.Conv2d(384,256, 3, 1, 1),
-            torch.nn.ReLU(),
-            torch.nn.MaxPool2d(3,2)
-        )
-        self.dense = torch.nn.Sequential(
-            torch.nn.Linear(9216, 4096),
-            torch.nn.ReLU(),
-            torch.nn.Dropout(0.5),
-            torch.nn.Linear(4096, 4096),
-            torch.nn.ReLU(),
-            torch.nn.Dropout(0.5),
-            torch.nn.Linear(4096, 50)
-        )
+        self.conv1 = nn.Conv2d(3, 96, 11, 4, 0)
+        self.conv2 = nn.Conv2d(96, 256, 5, 1, 2)
+        self.conv3 = nn.Conv2d(256, 384, 3, 1, 1)
+        self.conv4 = nn.Conv2d(384,384, 3, 1, 1)
+        self.conv5 = nn.Conv2d(384,256, 3, 1, 1)
+        self.fc1 = MaskLinearModule(9216, 4096),
+        self.fc2 = nn.Linear(4096, 4096),
+        self.fc3 = nn.Linear(4096, 50)
+        self.drop_rate = [0.5, 0.5]
 
     def forward(self, x):
-        x = self.conv1(x)
-        x = self.conv2(x)
-        x = self.conv3(x)
-        x = self.conv4(x)
-        x = self.conv5(x)
+        x = F.relu(self.conv1(x))
+        x = F.max_pool2d(x, 3, 2)
+        x = F.relu(self.conv2(x))
+        x = F.max_pool2d(x, 3, 2)
+        x = F.relu(self.conv3(x))
+        x = F.relu(self.conv4(x))
+        x = F.relu(self.conv5(x))
+        x = F.max_pool2d(x, 3, 2)
         x = x.view(x.size(0), -1)
-        x = self.dense(x)
+        x = F.relu(self.fc1(x))
+        x = nn.functional.dropout(x, p=self.drop_rate[0], inplace=False)
+        x = F.relu(self.fc2(x))
+        x = nn.functional.dropout(x, p=self.drop_rate[1], inplace=False)
+        x = self.fc3(x)
         return x
-
 
     def compute_dropout_rate(self):
         fc_list = [self.fc1, self.fc2]
