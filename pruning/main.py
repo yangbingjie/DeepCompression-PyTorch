@@ -25,6 +25,7 @@ def train(testloader, is_retrain=True, retrain_num=0, path='./result/Untitled'):
         print('=========== Retrain:', retrain_num, ' =========')
         net.load_state_dict(torch.load(path + str(retrain_num - 1)))
         net.eval()
+        net.compute_dropout_rate()
     else:
         print('=========== Train Start ===========')
 
@@ -53,14 +54,12 @@ def train(testloader, is_retrain=True, retrain_num=0, path='./result/Untitled'):
                 running_loss = 0.0
                 break
 
+    net.prune_layer()
     path = path + str(retrain_num)
     torch.save(net.state_dict(), path)
     log.log_file_size(path, 'K')
-    print('=========== Train End ===========')
-    print('=========== Prune Start ===========')
-    net.prune_layer()
     test(testloader, net)
-    print('=========== Prune End ===========')
+    print('=========== Train End ===========')
 
 
 transform = transforms.Compose(
