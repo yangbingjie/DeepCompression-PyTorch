@@ -27,7 +27,7 @@ classes = ('0', '1', '2', '3',
 criterion = nn.CrossEntropyLoss()
 
 retrain_num = 3
-base_path = './result/LeNet'
+base_path = './pruning/result/LeNet'
 net = LeNet5()
 train(net, trainloader=trainloader, criterion=criterion)
 path = base_path + '0'
