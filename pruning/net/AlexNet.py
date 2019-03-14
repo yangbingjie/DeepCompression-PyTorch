@@ -29,9 +29,9 @@ class AlexNet(PruneModule):
         # x = x.view(-1, 6400)
         x = x.view(x.size(0), -1)
         x = F.relu(self.fc1(x))
-        x = nn.functional.dropout(x, p=self.drop_rate[0], inplace=False)
+        x = nn.functional.dropout(x, p=self.drop_rate[0], training=True, inplace=False)
         x = F.relu(self.fc2(x))
-        x = nn.functional.dropout(x, p=self.drop_rate[1], inplace=False)
+        x = nn.functional.dropout(x, p=self.drop_rate[1], training=True, inplace=False)
         x = self.fc3(x)
         return x
 

@@ -11,10 +11,10 @@ class MaskLinearModule(Module):
         self.in_features = in_features
         self.out_features = out_features
         self.weight = nn.Parameter(torch.Tensor(out_features, in_features))
-        self.weight_mask = nn.Parameter(torch.ones((out_features, in_features)), requires_grad=False)
+        self.weight_mask = nn.Parameter(torch.ones((out_features, in_features)).byte(), requires_grad=False)
         if bias:
             self.bias = nn.Parameter(torch.Tensor(out_features))
-            self.bias_mask = nn.Parameter(torch.ones(out_features), requires_grad=False)
+            self.bias_mask = nn.Parameter(torch.ones(out_features).byte(), requires_grad=False)
         else:
             self.register_parameter('bias', None)
         self.reset_parameters()
@@ -28,9 +28,9 @@ class MaskLinearModule(Module):
 
     def forward(self, input):
         if self.bias is not None:
-            return Function.linear(input, self.weight * self.weight_mask, self.bias * self.bias_mask)
+            return Function.linear(input, self.weight * self.weight_mask.float(), self.bias * self.bias_mask.float())
         else:
-            return Function.linear(input, self.weight * self.weight_mask)
+            return Function.linear(input, self.weight * self.weight_mask.float())
 
     def prune(self, threshold):
         weight_dev = self.weight.device
