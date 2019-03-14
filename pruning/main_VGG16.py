@@ -31,25 +31,28 @@ testloader = torch.utils.data.DataLoader(testset, batch_size=4,
 criterion = nn.CrossEntropyLoss()
 
 retrain_num = 2
-base_path = './result/VGG'
+train_path = '../pruning/result/VGG16'
+retrain_path = './pruning/result/VGG16_retrain'
 net = VGG16(num_classes=200)
-optimizer = optim.SGD(list(net.parameters())[:], lr=1e-3, momentum=0.9)
+lr = 1e-1
+optimizer = optim.SGD(list(net.parameters())[:], lr=lr, momentum=0.9, weight_decay=1e-5)
 train(net, trainloader=trainloader, criterion=criterion, optimizer=optimizer)
-path = base_path + '0'
-torch.save(net.state_dict(), path)
-log.log_file_size(path, 'M')
+torch.save(net.state_dict(), train_path)
+log.log_file_size(train_path, 'M')
 test(testloader, net)
 
 
 for j in range(retrain_num):
-    print('=========== Retrain Start ===========')
-    net.load_state_dict(torch.load(base_path + str(j)))
+    print('=========== Retrain', j, 'Start ===========')
+    net.load_state_dict(torch.load(retrain_path if j != 0 else train_path))
     net.eval()
-    net.prune_layer()
+    # We used five iterations of pruning an retraining
+    for k in range(5):
+        net.prune_layer()
     net.compute_dropout_rate()
+    optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()), lr=lr/100, momentum=0.9, weight_decay=1e-5)
     train(net, trainloader=trainloader, criterion=criterion, optimizer=optimizer)
-    path = base_path + str(j + 1)
-    torch.save(net.state_dict(), path)
-    log.log_file_size(path, 'M')
-    print('=========== Train End ===========')
+    torch.save(net.state_dict(), retrain_path)
+    log.log_file_size(retrain_path, 'M')
     test(testloader, net)
+    print('=========== ReTrain End ===========')

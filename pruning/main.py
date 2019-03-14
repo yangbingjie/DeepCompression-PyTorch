@@ -22,32 +22,31 @@ testset = torchvision.datasets.MNIST(root='./data', train=False,
 testloader = torch.utils.data.DataLoader(testset, batch_size=4,
                                          shuffle=False, num_workers=2)
 
-classes = ('0', '1', '2', '3',
-           '4', '5', '6', '7', '8', '9')
-
 criterion = nn.CrossEntropyLoss()
 
 retrain_num = 3
-base_path = './pruning/result/LeNet'
+train_path = './pruning/result/LeNet'
+retrain_path = './pruning/result/LeNet_retrain'
 net = LeNet5()
-optimizer = optim.SGD(net.parameters(), lr=0.001, weight_decay=1e-5)
+lr = 1e-3
+optimizer = optim.SGD(net.parameters(), lr=lr, weight_decay=1e-5)
 train(net, trainloader=trainloader, criterion=criterion, optimizer=optimizer)
-path = base_path + '0'
-torch.save(net.state_dict(), path)
-log.log_file_size(path, 'K')
+torch.save(net.state_dict(), train_path)
+log.log_file_size(train_path, 'K')
 test(testloader, net)
 
 for j in range(retrain_num):
     print('=========== Retrain', j, ' Start ===========')
-    net.load_state_dict(torch.load(base_path + str(j)))
+    net.load_state_dict(torch.load(retrain_path if j != 0 else train_path))
     net.eval()
     net.prune_layer()
-    train(net, trainloader=trainloader, criterion=criterion)
-    path = base_path + str(j + 1)
-    torch.save(net.state_dict(), path)
-    log.log_file_size(path, 'K')
-    print('=========== Train End ===========')
+    # After pruning, the network is retrained with 1/10 of the original network's learning rate
+    optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()), lr=lr/10, weight_decay=1e-5)
+    train(net, trainloader=trainloader, criterion=criterion, optimizer=optimizer)
+    torch.save(net.state_dict(), retrain_path)
+    log.log_file_size(retrain_path, 'K')
     test(testloader, net)
+    print('=========== ReTrain End ===========')
 
 
 

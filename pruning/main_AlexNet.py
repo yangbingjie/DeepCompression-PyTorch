@@ -17,38 +17,39 @@ transform = transforms.Compose([
 ])
 
 trainset = datasets.ImageFolder(root='../data/tiny-imagenet-200/train',
-                                            transform=transform)
+                                transform=transform)
 
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=4,
                                           shuffle=True, num_workers=0)
 
 testset = datasets.ImageFolder(root='../data/tiny-imagenet-200/val',
-                                            transform=transform)
+                               transform=transform)
 
 testloader = torch.utils.data.DataLoader(testset, batch_size=4,
-                                          shuffle=True, num_workers=0)
+                                         shuffle=True, num_workers=0)
 
 criterion = nn.CrossEntropyLoss()
 
 retrain_num = 2
-base_path = './result/AlexNet'
+train_path = '../pruning/result/AlexNet'
+retrain_path = '../pruning/result/AlexNet_retrain'
 net = AlexNet(num_classes=200)
-optimizer = torch.optim.SGD(list(net.parameters())[:], lr=1e-5, momentum=0.9)
+lr = 1e-2
+optimizer = torch.optim.SGD(list(net.parameters())[:], lr=lr, momentum=0.9, weight_decay=1e-5)
 train(net, trainloader=trainloader, criterion=criterion, optimizer=optimizer)
-path = base_path + '0'
-torch.save(net.state_dict(), path)
-log.log_file_size(path, 'M')
+torch.save(net.state_dict(), train_path)
+log.log_file_size(train_path, 'M')
 test(testloader, net)
 
 for j in range(retrain_num):
-    print('=========== Retrain Start ===========')
-    net.load_state_dict(torch.load(base_path + str(j)))
+    print('=========== Retrain', j, 'Start ===========')
+    net.load_state_dict(torch.load(retrain_path if j != 0 else train_path))
     net.eval()
     net.prune_layer()
     net.compute_dropout_rate()
+    optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, net.parameters()), lr=lr/100, momentum=0.9, weight_decay=1e-5)
     train(net, trainloader=trainloader, criterion=criterion, optimizer=optimizer)
-    path = base_path + str(j + 1)
-    torch.save(net.state_dict(), path)
-    log.log_file_size(path, 'M')
-    print('=========== Train End ===========')
+    torch.save(net.state_dict(), retrain_path)
+    log.log_file_size(retrain_path, 'M')
     test(testloader, net)
+    print('=========== ReTrain End ===========')

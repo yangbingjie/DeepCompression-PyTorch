@@ -1,15 +1,15 @@
 import torch.nn as nn
 import torch.nn.functional as F
-from pruning.function.Prune import MaskLinearModule, PruneModule
+import pruning.function.Prune as prune
 
 
-class LeNet5(PruneModule):
+class LeNet5(prune.PruneModule):
     def __init__(self):
         super(LeNet5, self).__init__()
-        self.conv1 = nn.Conv2d(1, 20, 5, 1)
-        self.conv2 = nn.Conv2d(20, 50, 5, 1)
-        self.fc1 = MaskLinearModule(4 * 4 * 50, 500)
-        self.fc2 = MaskLinearModule(500, 10)
+        self.conv1 = prune.MaskConv2Module(1, 20, 5, 1)
+        self.conv2 = prune.MaskConv2Module(20, 50, 5, 1)
+        self.fc1 = prune.MaskLinearModule(4 * 4 * 50, 500)
+        self.fc2 = prune.MaskLinearModule(500, 10)
         self.drop_rate = [0.5, 0.5]
 
 

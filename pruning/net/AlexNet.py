@@ -1,20 +1,20 @@
 import math
 import torch.nn as nn
 import torch.nn.functional as F
-from pruning.function.Prune import MaskLinearModule, PruneModule
+import pruning.function.Prune as prune
 
 
-class AlexNet(PruneModule):
+class AlexNet(prune.PruneModule):
     def __init__(self, num_classes=1000):
         super(AlexNet, self).__init__()
-        self.conv1 = nn.Conv2d(3, 96, 11, 4, 0)
-        self.conv2 = nn.Conv2d(96, 256, 5, 1, 2)
-        self.conv3 = nn.Conv2d(256, 384, 3, 1, 1)
-        self.conv4 = nn.Conv2d(384, 384, 3, 1, 1)
-        self.conv5 = nn.Conv2d(384, 256, 3, 1, 1)
-        self.fc1 = MaskLinearModule(6400, 4096)
-        self.fc2 = MaskLinearModule(4096, 4096)
-        self.fc3 = MaskLinearModule(4096, num_classes)
+        self.conv1 = prune.MaskConv2Module(3, 96, 11, 4, 0)
+        self.conv2 = prune.MaskConv2Module(96, 256, 5, 1, 2)
+        self.conv3 = prune.MaskConv2Module(256, 384, 3, 1, 1)
+        self.conv4 = prune.MaskConv2Module(384, 384, 3, 1, 1)
+        self.conv5 = prune.MaskConv2Module(384, 256, 3, 1, 1)
+        self.fc1 = prune.MaskLinearModule(6400, 4096)
+        self.fc2 = prune.MaskLinearModule(4096, 4096)
+        self.fc3 = prune.MaskLinearModule(4096, num_classes)
         self.drop_rate = [0.5, 0.5]
 
     def forward(self, x):
@@ -26,7 +26,6 @@ class AlexNet(PruneModule):
         x = F.relu(self.conv4(x))
         x = F.relu(self.conv5(x))
         x = F.max_pool2d(x, 3, 2)
-        # x = x.view(-1, 6400)
         x = x.view(x.size(0), -1)
         x = F.relu(self.fc1(x))
         x = nn.functional.dropout(x, p=self.drop_rate[0], training=True, inplace=False)
