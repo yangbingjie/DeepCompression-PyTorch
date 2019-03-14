@@ -54,5 +54,5 @@ class PruneModule(Module):
         for name, module in self.named_modules():
             if name in ['fc1', 'fc2', 'fc3']:
                 threshold = np.std(module.weight.data.cpu().numpy()) * sensitivity
-                print('Pruning layer', name, ' threshold: ', round(threshold, 2))
+                print('Pruning layer', name, ' threshold: ', round(threshold, 5))
                 module.prune(threshold)

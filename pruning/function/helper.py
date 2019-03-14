@@ -1,5 +1,4 @@
 import torch
-import torch.optim as optim
 
 def test(testloader, net):
     correct = 0
@@ -11,12 +10,14 @@ def test(testloader, net):
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
+            # TODO delete it
+            break
     print('Accuracy of the network on the test images: %d %%' % (100 * correct / total))
 
 
-def train(net, trainloader, criterion):
+def train(net, trainloader, criterion, optimizer):
     # weight_decay is L2 regularization
-    optimizer = optim.SGD(net.parameters(), lr=0.001, weight_decay=1e-5)
+
     for epoch in range(1):  # loop over the dataset multiple times
         running_loss = 0.0
         for i, data in enumerate(trainloader, 0):
@@ -34,8 +35,9 @@ def train(net, trainloader, criterion):
 
             # print statistics
             running_loss += loss.item()
-            if i % 2000 == 1999:  # print every 2000 mini-batches
+            if i % 10 == 9:  # print every 10 mini-batches
                 print('[%d, %5d] loss: %.3f' %
-                      (epoch + 1, i + 1, running_loss / 2000))
+                      (epoch + 1, i + 1, running_loss / 10))
                 running_loss = 0.0
-                break
+                # TODO delete it
+            break

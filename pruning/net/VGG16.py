@@ -5,21 +5,58 @@ from pruning.function.Prune import MaskLinearModule, PruneModule
 
 
 class VGG16(PruneModule):
-    def __init__(self, features, num_classes=1000, init_weights=True):
+    def __init__(self, num_classes=1000, init_weights=True):
         super(VGG16, self).__init__()
-        self.features = features
+        self.conv1 = nn.Conv2d(3, 64, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv2d(64, 64, kernel_size=3, padding=1)
+        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
+        self.conv4 = nn.Conv2d(128, 128, kernel_size=3, padding=1)
+        self.conv5 = nn.Conv2d(128, 256, kernel_size=3, padding=1)
+        self.conv6 = nn.Conv2d(256, 256, kernel_size=3, padding=1)
+        self.conv7 = nn.Conv2d(256, 256, kernel_size=3, padding=1)
+        self.conv8 = nn.Conv2d(256, 512, kernel_size=3, padding=1)
+        self.conv9 = nn.Conv2d(512, 512, kernel_size=3, padding=1)
+        self.conv10 = nn.Conv2d(512, 512, kernel_size=3, padding=1)
+        self.conv11 = nn.Conv2d(512, 512, kernel_size=3, padding=1)
+        self.conv12 = nn.Conv2d(512, 512, kernel_size=3, padding=1)
+        self.conv13 = nn.Conv2d(512, 512, kernel_size=3, padding=1)
+
         self.avgpool = nn.AdaptiveAvgPool2d((7, 7))
-        self.classifier = nn.Sequential(
-            nn.Linear(512 * 7 * 7, 4096),
-            nn.ReLU(True),
-            nn.Dropout(),
-            nn.Linear(4096, 4096),
-            nn.ReLU(True),
-            nn.Dropout(),
-            nn.Linear(4096, num_classes),
-        )
+        self.fc1 = MaskLinearModule(512 * 7 * 7, 4096)
+        self.fc2 = MaskLinearModule(4096, 4096)
+        self.fc3 = MaskLinearModule(4096, num_classes)
+        self.drop_rate = [0.5, 0.5]
         if init_weights:
             self._initialize_weights()
+
+    def forward(self, x):
+        x = F.relu(self.conv1(x))
+        x = F.relu(self.conv2(x))
+        x = F.max_pool2d(x, kernel_size=2, stride=2)
+        x = F.relu(self.conv3(x))
+        x = F.relu(self.conv4(x))
+        x = F.max_pool2d(x, kernel_size=2, stride=2)
+        x = F.relu(self.conv5(x))
+        x = F.relu(self.conv6(x))
+        x = F.relu(self.conv7(x))
+        x = F.max_pool2d(x, kernel_size=2, stride=2)
+        x = F.relu(self.conv8(x))
+        x = F.relu(self.conv9(x))
+        x = F.relu(self.conv10(x))
+        x = F.max_pool2d(x, kernel_size=2, stride=2)
+        x = F.relu(self.conv11(x))
+        x = F.relu(self.conv12(x))
+        x = F.relu(self.conv13(x))
+        x = F.max_pool2d(x, kernel_size=2, stride=2)
+        x = self.avgpool(x)
+        x = x.view(x.size(0), -1)
+        x = F.relu(self.fc1(x))
+        x = nn.functional.dropout(x, p=self.drop_rate[0], inplace=False)
+        x = F.relu(self.fc2(x))
+        x = nn.functional.dropout(x, p=self.drop_rate[1], inplace=False)
+        x = self.fc3(x)
+        x = F.log_softmax(x, dim=1)
+        return x
 
     def _initialize_weights(self):
         for m in self.modules():
@@ -34,14 +71,6 @@ class VGG16(PruneModule):
                 nn.init.normal_(m.weight, 0, 0.01)
                 nn.init.constant_(m.bias, 0)
 
-    def forward(self, x):
-        x = self.features(x)
-        x = self.avgpool(x)
-        x = x.view(x.size(0), -1)
-        x = self.classifier(x)
-
-        x = nn.functional.dropout(x, p=self.drop_rate[0], inplace=False)
-        return x
 
     def compute_dropout_rate(self):
         fc_list = [self.fc1, self.fc2]
@@ -57,7 +86,7 @@ class VGG16(PruneModule):
             prune_num = prune_num + weight_arr.sum()
             basic = basic + weight_arr.size
             p = 0.5 * math.sqrt(prune_num / basic)
-            print('The drop out rate is:', p)
+            print('The drop out rate is:', round(p, 4))
             self.drop_rate[index] = p
 
     def num_flat_features(self, x):

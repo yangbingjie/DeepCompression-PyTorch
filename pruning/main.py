@@ -5,6 +5,7 @@ import torchvision.transforms as transforms
 from pruning.net.LeNet5 import LeNet5
 from pruning.function.helper import train, test
 import util.log as log
+import torch.optim as optim
 
 transform = transforms.Compose(
     [transforms.ToTensor(),
@@ -29,7 +30,8 @@ criterion = nn.CrossEntropyLoss()
 retrain_num = 3
 base_path = './pruning/result/LeNet'
 net = LeNet5()
-train(net, trainloader=trainloader, criterion=criterion)
+optimizer = optim.SGD(net.parameters(), lr=0.001, weight_decay=1e-5)
+train(net, trainloader=trainloader, criterion=criterion, optimizer=optimizer)
 path = base_path + '0'
 torch.save(net.state_dict(), path)
 log.log_file_size(path, 'K')
@@ -39,8 +41,8 @@ for j in range(retrain_num):
     print('=========== Retrain', j, ' Start ===========')
     net.load_state_dict(torch.load(base_path + str(j)))
     net.eval()
-    train(net, trainloader=trainloader, criterion=criterion)
     net.prune_layer()
+    train(net, trainloader=trainloader, criterion=criterion)
     path = base_path + str(j + 1)
     torch.save(net.state_dict(), path)
     log.log_file_size(path, 'K')

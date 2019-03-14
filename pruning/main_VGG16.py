@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
-from pruning.net.AlexNet import AlexNet
+from pruning.net.VGG16 import VGG16
 from pruning.function.helper import train, test
 import torchvision.datasets as datasets
 import util.log as log
@@ -31,14 +31,15 @@ testloader = torch.utils.data.DataLoader(testset, batch_size=4,
 criterion = nn.CrossEntropyLoss()
 
 retrain_num = 2
-base_path = './result/AlexNet'
-net = AlexNet(num_classes=200)
-optimizer = torch.optim.SGD(list(net.parameters())[:], lr=1e-5, momentum=0.9)
+base_path = './result/VGG'
+net = VGG16(num_classes=200)
+optimizer = optim.SGD(list(net.parameters())[:], lr=1e-3, momentum=0.9)
 train(net, trainloader=trainloader, criterion=criterion, optimizer=optimizer)
 path = base_path + '0'
 torch.save(net.state_dict(), path)
 log.log_file_size(path, 'M')
 test(testloader, net)
+
 
 for j in range(retrain_num):
     print('=========== Retrain Start ===========')
