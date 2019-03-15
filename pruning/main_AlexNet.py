@@ -48,8 +48,9 @@ for j in range(retrain_num):
     net.prune_layer(prune_mode=retrain_mode)
     print('====================== Retrain', retrain_mode, j, 'Start ==================')
     net.compute_dropout_rate()
-    net.fix_layer(fix_mode='conv' if retrain_mode=='fc' else 'fc')
-    optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, net.parameters()), lr=lr/100, momentum=0.9, weight_decay=1e-5)
+    net.fix_layer(fix_mode='conv' if retrain_mode == 'fc' else 'fc')
+    optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, net.parameters()), lr=lr / 100, momentum=0.9,
+                                weight_decay=1e-5)
     train(net, trainloader=trainloader, criterion=criterion, optimizer=optimizer)
     torch.save(net.state_dict(), retrain_path)
     log.log_file_size(retrain_path, 'M')

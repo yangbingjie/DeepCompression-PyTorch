@@ -5,7 +5,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.modules.module import Module
 
-
 class MaskModule(Module):
     def prune(self, threshold):
         weight_dev = self.weight.device
@@ -117,7 +116,7 @@ class PruneModule(Module):
             elif name.startswith(fix_mode):
                 p.requires_grad = False
                 print('Fix', name)
-            elif name.startswith('conv') or name.startswith('fc'):
+            else:
                 p.requires_grad = True
-                print('Open', name)
+                # print('Open', name)
         print('======''fix mode end', '=======')

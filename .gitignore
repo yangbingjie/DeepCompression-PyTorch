@@ -8,11 +8,13 @@ __pycache__/
 
 baseline/result/
 pruning/result/
+quantization/result/
 data/
 # data
 !/baseline/result/.gitkeep 
 !/pruning/result/.gitkeep 
 !/data/.gitkeep
+!/quantization/result/.gitkeep
 
 
 # Distribution / packaging

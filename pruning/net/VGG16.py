@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import pruning.function.Prune as prune
 
+
 class VGG16(prune.PruneModule):
     def __init__(self, num_classes=1000, init_weights=True):
         super(VGG16, self).__init__()
@@ -19,8 +20,6 @@ class VGG16(prune.PruneModule):
         self.conv11 = prune.MaskConv2Module(512, 512, kernel_size=3, padding=1)
         self.conv12 = prune.MaskConv2Module(512, 512, kernel_size=3, padding=1)
         self.conv13 = prune.MaskConv2Module(512, 512, kernel_size=3, padding=1)
-
-        self.avgpool = nn.AdaptiveAvgPool2d((7, 7))
         self.fc1 = prune.MaskLinearModule(512 * 7 * 7, 4096)
         self.fc2 = prune.MaskLinearModule(4096, 4096)
         self.fc3 = prune.MaskLinearModule(4096, num_classes)
@@ -47,7 +46,7 @@ class VGG16(prune.PruneModule):
         x = F.relu(self.conv12(x))
         x = F.relu(self.conv13(x))
         x = F.max_pool2d(x, kernel_size=2, stride=2)
-        x = self.avgpool(x)
+        x = F.adaptive_avg_pool2d(x, (7, 7))
         x = x.view(x.size(0), -1)
         x = F.relu(self.fc1(x))
         x = nn.functional.dropout(x, p=self.drop_rate[0], training=True, inplace=False)
@@ -69,7 +68,6 @@ class VGG16(prune.PruneModule):
             elif isinstance(m, nn.Linear):
                 nn.init.normal_(m.weight, 0, 0.01)
                 nn.init.constant_(m.bias, 0)
-
 
     def compute_dropout_rate(self):
         fc_list = [self.fc1, self.fc2]

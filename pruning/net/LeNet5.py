@@ -10,7 +10,6 @@ class LeNet5(prune.PruneModule):
         self.conv2 = prune.MaskConv2Module(20, 50, 5, 1)
         self.fc1 = prune.MaskLinearModule(4 * 4 * 50, 500)
         self.fc2 = prune.MaskLinearModule(500, 10)
-        self.drop_rate = [0.5, 0.5]
 
 
     def forward(self, x):
