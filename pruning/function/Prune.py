@@ -85,22 +85,39 @@ class MaskConv2Module(MaskModule):
 
 
 class PruneModule(Module):
-    def prune_layer(self, sensitivity=0.5):
+    # prune_mode: prune 'conv' or prune 'fc'
+    # 'not': is not retrain
+    # 'conv': retrain conv layer, fix fc layer
+    # 'fc': retrain fc layer, fix conv layer
+    def prune_layer(self, sensitivity=0.5, prune_mode='not'):
+        if prune_mode == 'not':
+            return
+        print('===== prune', prune_mode, '=====')
         for name, module in self.named_modules():
-            if name.startswith('conv') or name.startswith('fc'):
+            if (name.startswith('conv') and prune_mode == 'conv') \
+                    or (name.startswith('fc') and prune_mode == 'fc'):
                 # The pruning threshold is chosen as a quality parameter multiplied
                 # by the standard deviation of a layer's weight
                 threshold = np.std(module.weight.data.cpu().numpy()) * sensitivity
                 print('Pruning layer', name, ' threshold: ', round(threshold, 5))
                 module.prune(threshold)
+        print('====== prune end ======')
 
-    # fix_mode:
+    # fix_mode: fix 'conv' or 'fc'
     # 'not': is not retrain
     # 'conv': retrain conv layer, fix fc layer
     # 'fc': retrain fc layer, fix conv layer
     def fix_layer(self, fix_mode='not'):
         if fix_mode == 'not':
             return
+        print('===== fix mode is', fix_mode, '=====')
         for name, p in self.named_parameters():
-            if name.startswith(fix_mode):
+            if name.endswith('mask'):
+                continue
+            elif name.startswith(fix_mode):
                 p.requires_grad = False
+                print('Fix', name)
+            elif name.startswith('conv') or name.startswith('fc'):
+                p.requires_grad = True
+                print('Open', name)
+        print('======''fix mode end', '=======')
