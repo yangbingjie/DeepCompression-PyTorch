@@ -42,7 +42,7 @@ net = LeNet5()
 lr = 1e-3
 # weight_decay is L2 regularization
 optimizer = optim.SGD(net.parameters(), lr=lr, weight_decay=1e-5)
-helper.train(net, trainloader=trainloader, criterion=criterion, optimizer=optimizer)
+helper.train(net, trainloader=trainloader, criterion=criterion, optimizer=optimizer, epoch=5)
 torch.save(net.state_dict(), train_path)
 log.log_file_size(train_path, 'K')
 helper.test(testloader, net)
@@ -55,7 +55,7 @@ for j in range(retrain_num):
     net.fix_layer(fix_mode='conv' if retrain_mode == 'fc' else 'fc')
     # After pruning, the network is retrained with 1/10 of the original network's learning rate
     optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()), lr=lr / 10, weight_decay=1e-5)
-    helper.train(net, trainloader=trainloader, criterion=criterion, optimizer=optimizer)
+    helper.train(net, trainloader=trainloader, criterion=criterion, optimizer=optimizer, epoch=5)
     print('====================== ReTrain End ======================')
 
 helper.save_sparse_model(net, retrain_path)

@@ -34,4 +34,3 @@ class WeightCSR(csr_matrix):
         return (diff_list, value_list)
 
      # def csr_to_tensor(self, shape):
-     #
