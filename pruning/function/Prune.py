@@ -82,23 +82,33 @@ class MaskConv2Module(MaskModule):
             return F.conv2d(input, weight, stride=self.stride, padding=self.padding,
                             dilation=self.dilation, groups=self.groups)
 
-
 class PruneModule(Module):
     # prune_mode: prune 'conv' or prune 'fc'
     # 'not': is not retrain
     # 'conv': retrain conv layer, fix fc layer
     # 'fc': retrain fc layer, fix conv layer
-    def prune_layer(self, sensitivity=0.5, prune_mode='not'):
+    def prune_layer(self, sensitivity=None, prune_mode='not'):
         if prune_mode == 'not':
             return
+        if sensitivity is None:
+            sensitivity = {
+                'fc': 0.75,
+                'conv1': 0.3,
+                'conv': 0.5,
+            }
         print('===== prune', prune_mode, '=====')
         for name, module in self.named_modules():
-            if (name.startswith('conv') and prune_mode == 'conv') \
-                    or (name.startswith('fc') and prune_mode == 'fc'):
+            if name.startswith(prune_mode):
                 # The pruning threshold is chosen as a quality parameter multiplied
                 # by the standard deviation of a layer's weight
-                threshold = np.std(module.weight.data.cpu().numpy()) * sensitivity
-                print('Pruning layer', name, ' threshold: ', round(threshold, 5))
+                if name == 'conv1':
+                    s = sensitivity[name]
+                elif name.startswith('fc'):
+                    s = sensitivity['fc']
+                else:
+                    s = sensitivity['conv']
+                threshold = np.std(module.weight.data.cpu().numpy()) * s
+                print('Pruning layer', name, ' threshold: ', round(threshold, 4))
                 module.prune(threshold)
         print('====== prune end ======')
 

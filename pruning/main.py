@@ -9,11 +9,14 @@ import util.log as log
 import torch.optim as optim
 from pruning.function.csr import WeightCSR
 
-# test csr
+# # test csr
 # a = np.array([0, 3.4, 0, 0, 0.9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.7])
 # tensor = torch.from_numpy(a)
 # csr_matrix = WeightCSR(tensor, index_bits=3)
-# csr_matrix.tensor_to_csr()
+# a, b = csr_matrix.tensor_to_csr()
+# print(a)
+# print(b)
+# print(bin(8)[2:].zfill(3))
 
 transform = transforms.Compose(
     [transforms.ToTensor(),
@@ -32,7 +35,7 @@ testloader = torch.utils.data.DataLoader(testset, batch_size=4,
 
 criterion = nn.CrossEntropyLoss()
 
-retrain_num = 10
+retrain_num = 2
 train_path = '../pruning/result/LeNet'
 retrain_path = '../pruning/result/LeNet_retrain'
 net = LeNet5()
