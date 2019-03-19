@@ -18,6 +18,9 @@ from pruning.function.csr import WeightCSR
 # print(b)
 # print(bin(8)[2:].zfill(3))
 
+import torch.multiprocessing as multiprocessing
+multiprocessing.set_start_method('spawn')
+
 transform = transforms.Compose(
     [transforms.ToTensor(),
      transforms.Normalize([0.5], [0.5])])
@@ -25,24 +28,29 @@ transform = transforms.Compose(
 trainset = torchvision.datasets.MNIST(root='../data', train=True,
                                       download=True, transform=transform)
 
-trainloader = torch.utils.data.DataLoader(trainset, batch_size=4,
-                                          shuffle=True, num_workers=2)
+trainloader = torch.utils.data.DataLoader(trainset, batch_size=256,
+                                          shuffle=True, num_workers=4)
 
 testset = torchvision.datasets.MNIST(root='../data', train=False,
                                      download=True, transform=transform)
-testloader = torch.utils.data.DataLoader(testset, batch_size=4,
-                                         shuffle=False, num_workers=2)
+testloader = torch.utils.data.DataLoader(testset, batch_size=256,
+                                         shuffle=False, num_workers=4)
 
 criterion = nn.CrossEntropyLoss()
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+if torch.cuda.is_available():
+    torch.set_default_tensor_type('torch.cuda.FloatTensor')
 
-retrain_num = 2
-train_path = '../pruning/result/LeNet'
-retrain_path = '../pruning/result/LeNet_retrain'
+retrain_num = 3
+train_path = './pruning/result/LeNet'
+retrain_path = './pruning/result/LeNet_retrain'
+train_epoch = 4
+retrain_epoch = 4
 net = LeNet5()
-lr = 1e-3
+lr = 1e-2
 # weight_decay is L2 regularization
 optimizer = optim.SGD(net.parameters(), lr=lr, weight_decay=1e-5)
-helper.train(net, trainloader=trainloader, criterion=criterion, optimizer=optimizer, epoch=5)
+helper.train(net, trainloader=trainloader, criterion=criterion, optimizer=optimizer, epoch=train_epoch)
 torch.save(net.state_dict(), train_path)
 log.log_file_size(train_path, 'K')
 helper.test(testloader, net)
@@ -55,9 +63,11 @@ for j in range(retrain_num):
     net.fix_layer(fix_mode='conv' if retrain_mode == 'fc' else 'fc')
     # After pruning, the network is retrained with 1/10 of the original network's learning rate
     optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()), lr=lr / 10, weight_decay=1e-5)
-    helper.train(net, trainloader=trainloader, criterion=criterion, optimizer=optimizer, epoch=5)
+    helper.train(net, trainloader=trainloader, criterion=criterion, optimizer=optimizer, epoch=retrain_epoch)
+    helper.save_sparse_model(net, retrain_path)
+    log.log_file_size(retrain_path, 'K')
     print('====================== ReTrain End ======================')
 
-helper.save_sparse_model(net, retrain_path)
+# helper.save_sparse_model(net, retrain_path)
 log.log_file_size(retrain_path, 'K')
 helper.test(testloader, net)

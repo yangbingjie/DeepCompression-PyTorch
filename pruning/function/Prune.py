@@ -36,11 +36,11 @@ class MaskLinearModule(MaskModule):
         super(MaskLinearModule, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
-        self.weight = nn.Parameter(torch.Tensor(out_features, in_features))
-        self.weight_mask = nn.Parameter(torch.ones(self.weight.shape).byte(), requires_grad=False)
+        self.weight = nn.Parameter(torch.Tensor(out_features, in_features), requires_grad=True).cuda()
+        self.weight_mask = nn.Parameter(torch.ones(self.weight.shape).byte(), requires_grad=False).cuda()
         if bias:
-            self.bias = nn.Parameter(torch.Tensor(out_features))
-            self.bias_mask = nn.Parameter(torch.ones(out_features).byte(), requires_grad=False)
+            self.bias = nn.Parameter(torch.Tensor(out_features), requires_grad=True).cuda()
+            self.bias_mask = nn.Parameter(torch.ones(out_features).byte(), requires_grad=False).cuda()
         else:
             self.register_parameter('bias', None)
         self.reset_parameters()
@@ -63,24 +63,32 @@ class MaskConv2Module(MaskModule):
         self.padding = padding
         self.dilation = dilation
         self.groups = groups
-        self.weight = nn.Parameter(torch.Tensor(out_channels, in_channels // groups, *(kernel_size, kernel_size)))
-        self.weight_mask = nn.Parameter(torch.ones(self.weight.shape).byte(), requires_grad=False)
+        self.weight = nn.Parameter(torch.Tensor(out_channels, in_channels // groups, *(kernel_size, kernel_size)), requires_grad=True).cuda()
+        self.weight_mask = nn.Parameter(torch.ones(self.weight.shape).byte(), requires_grad=False).cuda()
         if bias:
-            self.bias = nn.Parameter(torch.Tensor(out_channels))
-            self.bias_mask = nn.Parameter(torch.ones(out_channels).byte(), requires_grad=False)
+            self.bias = nn.Parameter(torch.Tensor(out_channels), requires_grad=True).cuda()
+            self.bias_mask = nn.Parameter(torch.ones(out_channels).byte(), requires_grad=False).cuda()
         else:
             self.register_parameter('bias', None)
         self.reset_parameters()
 
     def forward(self, input):
-        weight = torch.from_numpy(self.weight.detach().numpy() * self.weight_mask.numpy())
+        weight_dev = self.weight.device
+        weight = self.weight.data.cpu().numpy()
+        weight_mask = self.weight_mask.data.cpu().numpy()
+        weight = torch.from_numpy(weight * weight_mask).to(weight_dev)
+        input = input.cuda()
         if self.bias is not None:
-            bias = self.bias * self.bias_mask.float()
+            bias_dev = self.bias.device
+            bias = self.bias.data.cpu().numpy()
+            bias_mask = self.bias_mask.data.cpu().numpy()
+            bias = torch.from_numpy(bias * bias_mask).to(bias_dev)
             return F.conv2d(input, weight, bias=bias, stride=self.stride, padding=self.padding,
                             dilation=self.dilation, groups=self.groups)
         else:
             return F.conv2d(input, weight, stride=self.stride, padding=self.padding,
                             dilation=self.dilation, groups=self.groups)
+
 
 class PruneModule(Module):
     # prune_mode: prune 'conv' or prune 'fc'
@@ -92,9 +100,9 @@ class PruneModule(Module):
             return
         if sensitivity is None:
             sensitivity = {
-                'fc': 0.75,
-                'conv1': 0.3,
-                'conv': 0.5,
+                'fc': 0.9,
+                'conv1': 0.5,
+                'conv': 0.7,
             }
         print('===== prune', prune_mode, '=====')
         for name, module in self.named_modules():
@@ -125,8 +133,8 @@ class PruneModule(Module):
                 continue
             elif name.startswith(fix_mode):
                 p.requires_grad = False
-                print('Fix', name)
+                # print('Fix', name)
             else:
                 p.requires_grad = True
                 # print('Open', name)
-        print('======''fix mode end', '=======')
+        # print('======''fix mode end', '=======')
