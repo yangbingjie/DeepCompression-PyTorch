@@ -11,46 +11,56 @@ def test(testloader, net):
     with torch.no_grad():
         for data in testloader:
             images, labels = data
-            images = images.cuda()
-            labels = labels.cuda()
+            images, labels = images.to(device), labels.to(device)
             outputs = net(images)
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
-            # # TODO delete it
+            # # TODO delete
             # break
     print('Accuracy of the network on the test images: %d %%' % (100 * correct / total))
 
 
-def train(net, trainloader, criterion, optimizer, epoch=1):
+
+def train(net, trainloader, criterion, optimizer, epoch=1, log_frequency=100):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    net = net.to(device)
+    lambda1 = lambda epoch: 0.95 ** epoch
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda1)
+    net.to(device)
     for epoch in range(epoch):  # loop over the dataset multiple times
+        scheduler.step()
         running_loss = 0.0
         for i, data in enumerate(trainloader, 0):
             # get the inputs
             inputs, labels = data
+            inputs, labels = inputs.to(device), labels.to(device)
 
             # zero the parameter gradients
             optimizer.zero_grad()
-            inputs = inputs.cuda()
-            labels = labels.cuda()
             # forward + backward + optimize
             outputs = net(inputs)
             loss = criterion(outputs, labels)
             loss.backward()  # backward
+            # 将已修剪的连接的梯度置为零
+            for name, p in net.named_parameters():
+                if name.endswith('mask') or p.grad is None or p.data is None:
+                    continue
+                # p.data数据可能在gpu里，.cpu()可以将值拷贝一份到cpu
+                tensor = p.data.cpu().numpy()
+                grad_tensor = p.grad.data.cpu().numpy()
+                grad_tensor = np.where(tensor < 1e-6, 0, grad_tensor)
+                p.grad.data = torch.from_numpy(grad_tensor).to(device)
+
             optimizer.step()  # update weight
 
             # print statistics
             running_loss += loss.item()
-            if i % 1000 == 999:  # print every mini-batches
+            if i % log_frequency == log_frequency - 1:  # print every mini-batches
                 print('[%d, %5d] loss: %.3f' %
-                      (epoch + 1, i + 1, running_loss / 1000))
+                      (epoch + 1, i + 1, running_loss / log_frequency))
                 running_loss = 0.0
-
-            # # TODO delete it
-            # if i == 1000:
-            #     break
+            # # TODO delete
+            # break
 
 
 def save_sparse_model(net, path):
@@ -61,7 +71,7 @@ def save_sparse_model(net, path):
     total = 0
     for key, tensor in net.state_dict().items():
         if key.endswith('mask'):
-            total += tensor.numpy().reshape(-1).size
+            total += tensor.cpu().numpy().reshape(-1).size
             continue
         if key.startswith('conv'):
             # 8 bits for conv layer index diff
@@ -75,7 +85,7 @@ def save_sparse_model(net, path):
             fc_diff_array.extend(diff_list)
         nz_num.append(csr_matrix.nz_num)
         value_array.extend(value_list)
-    print('prune rate: ', sum(nz_num) / total)
+    print('prune rate: ', round(total / sum(nz_num), 5))
     length = len(fc_diff_array)
     if length % 2 != 0:
         fc_diff_array.append(0)
@@ -90,6 +100,3 @@ def save_sparse_model(net, path):
     }
     torch.save(save_obj, path)
 
-# def load_sparse_model(net, path):
-#     layers = filter(lambda x: 'conv' in x or 'fc' in x or 'ip' in x, net.params.keys())  # 重构每一层
-#     nz_num = np.fromfile(path, dtype=np.uint32, count=len(layers))

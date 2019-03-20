@@ -4,7 +4,7 @@ import numpy as np
 
 class WeightCSR(csr_matrix):
     def __init__(self, tensor, index_bits=8):
-        self.tensor = tensor.numpy().reshape(-1)
+        self.tensor = tensor.cpu().numpy().reshape(-1)
         # non zero number
         self.nz_num = 0
         self.index_bits = index_bits
@@ -32,5 +32,3 @@ class WeightCSR(csr_matrix):
                 value_list.append(value)
                 last_index = i
         return (diff_list, value_list)
-
-     # def csr_to_tensor(self, shape):

@@ -34,13 +34,14 @@ class MaskModule(Module):
 class MaskLinearModule(MaskModule):
     def __init__(self, in_features, out_features, bias=True):
         super(MaskLinearModule, self).__init__()
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.in_features = in_features
         self.out_features = out_features
-        self.weight = nn.Parameter(torch.Tensor(out_features, in_features), requires_grad=True).cuda()
-        self.weight_mask = nn.Parameter(torch.ones(self.weight.shape).byte(), requires_grad=False).cuda()
+        self.weight = nn.Parameter(torch.Tensor(out_features, in_features), requires_grad=True).to(device)
+        self.weight_mask = nn.Parameter(torch.ones(self.weight.shape).byte(), requires_grad=False).to(device)
         if bias:
-            self.bias = nn.Parameter(torch.Tensor(out_features), requires_grad=True).cuda()
-            self.bias_mask = nn.Parameter(torch.ones(out_features).byte(), requires_grad=False).cuda()
+            self.bias = nn.Parameter(torch.Tensor(out_features), requires_grad=True).to(device)
+            self.bias_mask = nn.Parameter(torch.ones(out_features).byte(), requires_grad=False).to(device)
         else:
             self.register_parameter('bias', None)
         self.reset_parameters()
@@ -56,6 +57,7 @@ class MaskConv2Module(MaskModule):
     def __init__(self, in_channels, out_channels, kernel_size, stride=1,
                  padding=0, dilation=1, groups=1, bias=True):
         super(MaskConv2Module, self).__init__()
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.kernel_size = kernel_size
@@ -63,11 +65,11 @@ class MaskConv2Module(MaskModule):
         self.padding = padding
         self.dilation = dilation
         self.groups = groups
-        self.weight = nn.Parameter(torch.Tensor(out_channels, in_channels // groups, *(kernel_size, kernel_size)), requires_grad=True).cuda()
-        self.weight_mask = nn.Parameter(torch.ones(self.weight.shape).byte(), requires_grad=False).cuda()
+        self.weight = nn.Parameter(torch.Tensor(out_channels, in_channels // groups, *(kernel_size, kernel_size)), requires_grad=True).to(device)
+        self.weight_mask = nn.Parameter(torch.ones(self.weight.shape).byte(), requires_grad=False).to(device)
         if bias:
-            self.bias = nn.Parameter(torch.Tensor(out_channels), requires_grad=True).cuda()
-            self.bias_mask = nn.Parameter(torch.ones(out_channels).byte(), requires_grad=False).cuda()
+            self.bias = nn.Parameter(torch.Tensor(out_channels), requires_grad=True).to(device)
+            self.bias_mask = nn.Parameter(torch.ones(out_channels).byte(), requires_grad=False).to(device)
         else:
             self.register_parameter('bias', None)
         self.reset_parameters()
@@ -100,9 +102,9 @@ class PruneModule(Module):
             return
         if sensitivity is None:
             sensitivity = {
-                'fc': 0.9,
-                'conv1': 0.5,
-                'conv': 0.7,
+                'fc': 0.6,
+                'conv1': 0.1,
+                'conv': 0.3,
             }
         print('===== prune', prune_mode, '=====')
         for name, module in self.named_modules():
@@ -116,25 +118,25 @@ class PruneModule(Module):
                 else:
                     s = sensitivity['conv']
                 threshold = np.std(module.weight.data.cpu().numpy()) * s
-                print('Pruning layer', name, ' threshold: ', round(threshold, 4))
+                # print('Pruning layer', name, ' threshold: ', round(threshold, 4))
                 module.prune(threshold)
-        print('====== prune end ======')
+        # print('====== prune end ======')
 
     # fix_mode: fix 'conv' or 'fc'
     # 'not': is not retrain
     # 'conv': retrain conv layer, fix fc layer
     # 'fc': retrain fc layer, fix conv layer
-    def fix_layer(self, fix_mode='not'):
+    def fix_layer(self, net, fix_mode='not'):
         if fix_mode == 'not':
             return
         print('===== fix mode is', fix_mode, '=====')
-        for name, p in self.named_parameters():
+        for name, p in net.named_parameters():
             if name.endswith('mask'):
                 continue
             elif name.startswith(fix_mode):
-                p.requires_grad = False
+                p.requires_grad_(False)
                 # print('Fix', name)
             else:
-                p.requires_grad = True
+                p.requires_grad_(True)
                 # print('Open', name)
         # print('======''fix mode end', '=======')

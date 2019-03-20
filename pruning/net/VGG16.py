@@ -1,9 +1,11 @@
 import math
+import torch
 import torch.nn as nn
+from torch.autograd import Variable
 import torch.nn.functional as F
 import pruning.function.Prune as prune
 
-
+drop_rate = [0.5, 0.5]
 class VGG16(prune.PruneModule):
     def __init__(self, num_classes=1000, init_weights=True):
         super(VGG16, self).__init__()
@@ -23,7 +25,6 @@ class VGG16(prune.PruneModule):
         self.fc1 = prune.MaskLinearModule(512 * 7 * 7, 4096)
         self.fc2 = prune.MaskLinearModule(4096, 4096)
         self.fc3 = prune.MaskLinearModule(4096, num_classes)
-        self.drop_rate = [0.5, 0.5]
         if init_weights:
             self._initialize_weights()
 
@@ -49,9 +50,9 @@ class VGG16(prune.PruneModule):
         x = F.adaptive_avg_pool2d(x, (7, 7))
         x = x.view(x.size(0), -1)
         x = F.relu(self.fc1(x))
-        x = nn.functional.dropout(x, p=self.drop_rate[0], training=True, inplace=False)
+        x = nn.functional.dropout(x, p=drop_rate[0], training=True, inplace=False)
         x = F.relu(self.fc2(x))
-        x = nn.functional.dropout(x, p=self.drop_rate[1], training=True, inplace=False)
+        x = nn.functional.dropout(x, p=drop_rate[1], training=True, inplace=False)
         x = self.fc3(x)
         x = F.log_softmax(x, dim=1)
         return x
@@ -84,7 +85,7 @@ class VGG16(prune.PruneModule):
             basic = basic + weight_arr.size
             p = 0.5 * math.sqrt(prune_num / basic)
             print('The drop out rate is:', round(p, 4))
-            self.drop_rate[index] = p
+            drop_rate[index] = p
 
     def num_flat_features(self, x):
         size = x.size()[1:]
@@ -92,3 +93,10 @@ class VGG16(prune.PruneModule):
         for s in size:
             num_features *= s
         return num_features
+
+
+# net = VGG16()
+# x = Variable(torch.FloatTensor(16, 3, 40, 40))
+# y = net(x)
+# print(y.data.shape)
+# torch.Size([16, 1000])
