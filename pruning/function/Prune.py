@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.modules.module import Module
 
+
 class MaskModule(Module):
     def prune(self, threshold):
         weight_dev = self.weight.device
@@ -65,7 +66,8 @@ class MaskConv2Module(MaskModule):
         self.padding = padding
         self.dilation = dilation
         self.groups = groups
-        self.weight = nn.Parameter(torch.Tensor(out_channels, in_channels // groups, *(kernel_size, kernel_size)), requires_grad=True).to(device)
+        self.weight = nn.Parameter(torch.Tensor(out_channels, in_channels // groups, *(kernel_size, kernel_size)),
+                                   requires_grad=True).to(device)
         self.weight_mask = nn.Parameter(torch.ones(self.weight.shape).byte(), requires_grad=False).to(device)
         if bias:
             self.bias = nn.Parameter(torch.Tensor(out_channels), requires_grad=True).to(device)
@@ -134,9 +136,13 @@ class PruneModule(Module):
             if name.endswith('mask'):
                 continue
             elif name.startswith(fix_mode):
-                p.requires_grad_(False)
-                # print('Fix', name)
+                weight_dev = p.device
+                weight = p.data.cpu()
+                weight.requires_grad = False
+                weight.to(weight_dev)
             else:
-                p.requires_grad_(True)
-                # print('Open', name)
+                weight_dev = p.device
+                weight = p.data.cpu()
+                weight.requires_grad = True
+                weight.to(weight_dev)
         # print('======''fix mode end', '=======')

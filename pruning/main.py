@@ -73,7 +73,7 @@ for j in range(retrain_num):
     retrain_mode = 'conv' if j % 2 == 0 else 'fc'
     net.prune_layer(prune_mode=retrain_mode)
     print('====================== Retrain', retrain_mode, j, 'Start ==================')
-    # net.fix_layer(fix_mode='conv' if retrain_mode == 'fc' else 'fc')
+    net.fix_layer(fix_mode='conv' if retrain_mode == 'fc' else 'fc')
     # After pruning, the network is retrained with 1/10 of the original network's learning rate
     optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()), lr=lr / 10, weight_decay=1e-5)
     helper.train(net, trainloader=trainloader, criterion=criterion, optimizer=optimizer,

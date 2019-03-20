@@ -16,8 +16,7 @@ def test(testloader, net):
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
-            # # TODO delete
-            # break
+
     print('Accuracy of the network on the test images: %d %%' % (100 * correct / total))
 
 
@@ -59,8 +58,6 @@ def train(net, trainloader, criterion, optimizer, epoch=1, log_frequency=100):
                 print('[%d, %5d] loss: %.3f' %
                       (epoch + 1, i + 1, running_loss / log_frequency))
                 running_loss = 0.0
-            # # TODO delete
-            # break
 
 
 def save_sparse_model(net, path):
