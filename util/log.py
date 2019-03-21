@@ -6,7 +6,6 @@ unit_switcher = {
     'M': 1048576,  # million byte
 }
 
-
 # log the file size
 # unit: "B" or "KB" or "M"
 def log_file_size(path, unit='B'):

@@ -21,7 +21,7 @@ import torch.multiprocessing as multiprocessing
 
 use_cuda = True
 seed = 46
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 if use_cuda:
     print("Using CUDA!")
     torch.cuda.manual_seed(seed)

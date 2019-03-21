@@ -1,7 +1,6 @@
 import torch
 import numpy as np
 from pruning.function.csr import WeightCSR
-import util.log as log
 
 
 def test(testloader, net):
@@ -23,16 +22,14 @@ def test(testloader, net):
 
 def train(net, trainloader, criterion, optimizer, epoch=1, log_frequency=100):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    lambda1 = lambda epoch: 0.98 ** epoch
-    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda1)
-    net.to(device)
     for epoch in range(epoch):  # loop over the dataset multiple times
-        scheduler.step()
         running_loss = 0.0
         for i, data in enumerate(trainloader, 0):
             # get the inputs
             inputs, labels = data
             inputs, labels = inputs.to(device), labels.to(device)
+            inputs.cuda()
+            labels.cuda()
 
             # zero the parameter gradients
             optimizer.zero_grad()
@@ -40,16 +37,6 @@ def train(net, trainloader, criterion, optimizer, epoch=1, log_frequency=100):
             outputs = net(inputs)
             loss = criterion(outputs, labels)
             loss.backward()  # backward
-            # 将已修剪的连接的梯度置为零
-            for name, p in net.named_parameters():
-                if name.endswith('mask') or p.grad is None or p.data is None:
-                    continue
-                # p.data数据可能在gpu里，.cpu()可以将值拷贝一份到cpu
-                tensor = p.data.cpu().numpy()
-                grad_tensor = p.grad.data.cpu().numpy()
-                grad_tensor = np.where(tensor < 1e-6, 0, grad_tensor)
-                p.grad.data = torch.from_numpy(grad_tensor).to(device)
-
             optimizer.step()  # update weight
 
             # print statistics

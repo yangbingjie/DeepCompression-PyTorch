@@ -42,10 +42,10 @@ class AlexNet(prune.PruneModule):
             last_prune_num = 0
             last_total_num = 0
             if last_layer.bias is not None:
-                bias_arr = (last_layer.bias_mask.data.cpu().numpy())
+                bias_arr = (last_layer.bias_mask.data.cuda().numpy())
                 last_prune_num = bias_arr.sum()
                 last_total_num = bias_arr.size
-            weight_arr = (last_layer.weight_mask.data.cpu().numpy())
+            weight_arr = (last_layer.weight_mask.data.cuda().numpy())
             last_prune_num += weight_arr.sum()
             last_total_num += weight_arr.size
 
@@ -54,10 +54,10 @@ class AlexNet(prune.PruneModule):
             next_prune_num = 0
             next_total_num = 0
             if next_layer.bias is not None:
-                bias_arr = (next_layer.bias_mask.data.cpu().numpy())
+                bias_arr = (next_layer.bias_mask.data.cuda().numpy())
                 next_prune_num = bias_arr.sum()
                 next_total_num = bias_arr.size
-            weight_arr = (next_layer.weight_mask.data.cpu().numpy())
+            weight_arr = (next_layer.weight_mask.data.cuda().numpy())
             next_prune_num += weight_arr.sum()
             next_total_num += weight_arr.size
 

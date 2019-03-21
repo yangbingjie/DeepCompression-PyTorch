@@ -1,5 +1,4 @@
 from scipy.sparse import csr_matrix
-import numpy as np
 
 
 class WeightCSR(csr_matrix):

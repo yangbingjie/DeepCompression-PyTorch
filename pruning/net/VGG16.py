@@ -1,5 +1,4 @@
 import math
-import torch
 import torch.nn as nn
 from torch.autograd import Variable
 import torch.nn.functional as F
@@ -77,10 +76,10 @@ class VGG16(prune.PruneModule):
             prune_num = 0
             basic = 0
             if layer.bias is not None:
-                bias_arr = (layer.bias_mask.data.cpu().numpy())
+                bias_arr = (layer.bias_mask.data.cuda().numpy())
                 prune_num = bias_arr.sum()
                 basic = bias_arr.size
-            weight_arr = (layer.weight_mask.data.cpu().numpy())
+            weight_arr = (layer.weight_mask.data.cuda().numpy())
             prune_num = prune_num + weight_arr.sum()
             basic = basic + weight_arr.size
             p = 0.5 * math.sqrt(prune_num / basic)

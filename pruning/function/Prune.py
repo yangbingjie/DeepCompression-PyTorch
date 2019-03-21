@@ -12,10 +12,10 @@ class MaskModule(Module):
         weight_mask_dev = self.weight_mask.device
         bias_dev = self.bias.device
         bias_mask_dev = self.bias_mask.device
-        weight = self.weight.data.cpu().numpy()
-        weight_mask = self.weight_mask.data.cpu().numpy()
-        bias = self.bias.data.cpu().numpy()
-        bias_mask = self.bias_mask.data.cpu().numpy()
+        weight = self.weight.data.cuda().numpy()
+        weight_mask = self.weight_mask.data.cuda().numpy()
+        bias = self.bias.data.cuda().numpy()
+        bias_mask = self.bias_mask.data.cuda().numpy()
         new_weight_mask = np.where(abs(weight) < threshold, 0, weight_mask)
         self.weight.data = torch.from_numpy(weight * new_weight_mask).to(weight_dev)
         self.weight_mask.data = torch.from_numpy(new_weight_mask).to(weight_mask_dev)
@@ -23,6 +23,7 @@ class MaskModule(Module):
             new_bias_mask = np.where(abs(bias) < threshold, 0, bias_mask)
             self.bias.data = torch.from_numpy(bias * new_bias_mask).to(bias_dev)
             self.bias_mask.data = torch.from_numpy(new_bias_mask).to(bias_mask_dev)
+
 
     def reset_parameters(self):
         nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
@@ -35,30 +36,31 @@ class MaskModule(Module):
 class MaskLinearModule(MaskModule):
     def __init__(self, in_features, out_features, bias=True):
         super(MaskLinearModule, self).__init__()
-        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.in_features = in_features
         self.out_features = out_features
-        self.weight = nn.Parameter(torch.Tensor(out_features, in_features), requires_grad=True).to(device)
-        self.weight_mask = nn.Parameter(torch.ones(self.weight.shape).byte(), requires_grad=False).to(device)
+        self.weight = nn.Parameter(torch.Tensor(out_features, in_features), requires_grad=True).cuda()
+        self.weight_mask = nn.Parameter(torch.ones(self.weight.shape).byte(), requires_grad=False).cuda()
         if bias:
-            self.bias = nn.Parameter(torch.Tensor(out_features), requires_grad=True).to(device)
-            self.bias_mask = nn.Parameter(torch.ones(out_features).byte(), requires_grad=False).to(device)
+            self.bias = nn.Parameter(torch.Tensor(out_features), requires_grad=True).cuda()
+            self.bias_mask = nn.Parameter(torch.ones(out_features).byte(), requires_grad=False).cuda()
         else:
             self.register_parameter('bias', None)
         self.reset_parameters()
 
     def forward(self, input):
+        weight = self.weight * self.weight_mask.float()
         if self.bias is not None:
-            return F.linear(input, self.weight * self.weight_mask.float(), self.bias * self.bias_mask.float())
+            return F.linear(input, weight, self.bias * self.bias_mask.float())
         else:
-            return F.linear(input, self.weight * self.weight_mask.float())
+            return F.linear(input, weight)
 
 
 class MaskConv2Module(MaskModule):
     def __init__(self, in_channels, out_channels, kernel_size, stride=1,
                  padding=0, dilation=1, groups=1, bias=True):
         super(MaskConv2Module, self).__init__()
-        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.kernel_size = kernel_size
@@ -67,26 +69,19 @@ class MaskConv2Module(MaskModule):
         self.dilation = dilation
         self.groups = groups
         self.weight = nn.Parameter(torch.Tensor(out_channels, in_channels // groups, *(kernel_size, kernel_size)),
-                                   requires_grad=True).to(device)
-        self.weight_mask = nn.Parameter(torch.ones(self.weight.shape).byte(), requires_grad=False).to(device)
+                                   requires_grad=True).cuda()
+        self.weight_mask = nn.Parameter(torch.ones(self.weight.shape).byte(), requires_grad=False).cuda()
         if bias:
-            self.bias = nn.Parameter(torch.Tensor(out_channels), requires_grad=True).to(device)
-            self.bias_mask = nn.Parameter(torch.ones(out_channels).byte(), requires_grad=False).to(device)
+            self.bias = nn.Parameter(torch.Tensor(out_channels), requires_grad=True).cuda()
+            self.bias_mask = nn.Parameter(torch.ones(out_channels).byte(), requires_grad=False).cuda()
         else:
             self.register_parameter('bias', None)
         self.reset_parameters()
 
     def forward(self, input):
-        weight_dev = self.weight.device
-        weight = self.weight.data.cpu().numpy()
-        weight_mask = self.weight_mask.data.cpu().numpy()
-        weight = torch.from_numpy(weight * weight_mask).to(weight_dev)
-        # input = input.cuda()
+        weight = self.weight * self.weight_mask.float()
         if self.bias is not None:
-            bias_dev = self.bias.device
-            bias = self.bias.data.cpu().numpy()
-            bias_mask = self.bias_mask.data.cpu().numpy()
-            bias = torch.from_numpy(bias * bias_mask).to(bias_dev)
+            bias = self.bias * self.bias_mask.float()
             return F.conv2d(input, weight, bias=bias, stride=self.stride, padding=self.padding,
                             dilation=self.dilation, groups=self.groups)
         else:
@@ -119,10 +114,22 @@ class PruneModule(Module):
                     s = sensitivity['fc']
                 else:
                     s = sensitivity['conv']
-                threshold = np.std(module.weight.data.cpu().numpy()) * s
+                threshold = np.std(module.weight.data.cuda().numpy()) * s
                 # print('Pruning layer', name, ' threshold: ', round(threshold, 4))
                 module.prune(threshold)
+
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            # 将已修剪的连接的梯度置为零
+            for name, p in self.named_parameters():
+                if name.endswith('mask') or p.grad is None or p.data is None:
+                    continue
+                    # p.data数据可能在gpu里，.cuda()可以将值拷贝一份到cpu
+                tensor = p.data.cuda().numpy()
+                grad_tensor = p.grad.data.cuda().numpy()
+                grad_tensor = np.where(tensor < 1e-6, 0, grad_tensor)
+                p.grad.data = torch.from_numpy(grad_tensor).to(device)
         # print('====== prune end ======')
+
 
     # fix_mode: fix 'conv' or 'fc'
     # 'not': is not retrain
@@ -137,12 +144,11 @@ class PruneModule(Module):
                 continue
             elif name.startswith(fix_mode):
                 weight_dev = p.device
-                weight = p.data.cpu()
+                weight = p.data.cuda()
                 weight.requires_grad = False
                 weight.to(weight_dev)
             else:
                 weight_dev = p.device
-                weight = p.data.cpu()
+                weight = p.data.cuda()
                 weight.requires_grad = True
                 weight.to(weight_dev)
-        # print('======''fix mode end', '=======')
