@@ -5,7 +5,7 @@ import util.log as log
 
 
 def test(testloader, net):
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     correct = 0
     total = 0
     net = net.to(device)
@@ -17,14 +17,12 @@ def test(testloader, net):
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
-            # TODO delete
-            break
 
     print('Accuracy of the network on the test images: %d %%' % (100 * correct / total))
 
 
 def train(net, trainloader, criterion, optimizer, epoch=1, log_frequency=100):
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     lambda1 = lambda epoch: 0.98 ** epoch
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda1)
     net.to(device)
@@ -60,8 +58,6 @@ def train(net, trainloader, criterion, optimizer, epoch=1, log_frequency=100):
                 print('[%d, %5d] loss: %.3f' %
                       (epoch + 1, i + 1, running_loss / log_frequency))
                 running_loss = 0.0
-            # TODO delete
-            break
 
 
 def save_sparse_model(net, path):
@@ -90,19 +86,31 @@ def save_sparse_model(net, path):
     length = len(fc_diff_array)
     if length % 2 != 0:
         fc_diff_array.append(0)
-    fc_diff = []
+    # print(fc_diff_array[0:20])
+    # [0, 15, 2, 5, 2, 4, 0, 1, 5, 3, 2, 3, 3, 0, 15, 7, 4, 2, 3, 8]
+    # Merge 4 bits index to 8 bits index
+    fc_merge_diff = []
     for i in range(int(len(fc_diff_array) / 2) - 1):
-        fc_diff.append(int(str(fc_diff_array[2 * i - 1]) + str(fc_diff_array[2 * i])))
-
+        fc_merge_diff.append((fc_diff_array[2 * i] << 4) + fc_diff_array[2 * i + 1])
     nz_num = np.asarray(nz_num, dtype=np.uint32)
     conv_diff_array = np.asarray(conv_diff_array, dtype=np.uint8)
-    fc_diff = np.asarray(fc_diff, dtype=np.uint8)
+    fc_diff = np.asarray(fc_merge_diff, dtype=np.uint8)
     value_array = np.asarray(value_array, dtype=np.float32)
 
-    # print(nz_num[0:20])
-    # print(conv_diff_array.size, conv_diff_array[0:20])
-    # print(fc_diff.size, fc_diff[0:20])
-    # print(value_array.size, value_array[0:20])
+    print(len(nz_num), nz_num)
+    # [414    16 17721    30 58444    80   928     2]
+
+    print(conv_diff_array.size, conv_diff_array[0:20])
+    # 18181 [0 0 0 0 0 0 0 0 0 1 0 1 1 1 0 0 0 0 0 1]
+
+    print(fc_diff.size, fc_diff[0:20])
+    # 29726 [15  37  36   1  83  35  48 247  66  56 243   1  49 135 117 193  75 116 49 12]
+
+    print(value_array.size, value_array[0:20])
+    # 77635 [0.09329121  0.12394819  0.15035458  0.16515684 -0.11556916  0.11080728
+    #  -0.19227423  0.18155988 -0.12307335 -0.0724294   0.11607318 -0.17173317
+    #  -0.11070834  0.09389408 -0.11057968  0.13396473 -0.07218766  0.12388527
+    #  -0.13775156  0.13474926]
 
     # Set to the same dtype uint8 to save
     nz_num.dtype = np.uint8
@@ -113,24 +121,46 @@ def save_sparse_model(net, path):
 
 
 def load_sparse_model(net, path):
-    conv_layer_length = 0
-    fc_layer_length = 0
+    conv_layer_num = 0
+    fc_layer_num = 0
     fin = open(path, 'rb')
     for name, x in net.named_parameters():
         if name.endswith('mask'):
             continue
         if name.startswith('conv'):
-            conv_layer_length += 1
+            conv_layer_num += 1
         elif name.startswith('fc'):
-            fc_layer_length += 1
-    nz_num = np.fromfile(fin, dtype=np.uint32, count=conv_layer_length + fc_layer_length)
-    conv_diff_num = sum(nz_num[:conv_layer_length])
-    fc_diff_num = int(sum(nz_num[conv_layer_length:]) / 2)
+            fc_layer_num += 1
+    nz_num = np.fromfile(fin, dtype=np.uint32, count=conv_layer_num + fc_layer_num)
+    conv_diff_num = sum(nz_num[:conv_layer_num])
+    fc_diff_num = int(sum(nz_num[conv_layer_num:]) / 2)
     conv_diff = np.fromfile(fin, dtype=np.uint8, count=conv_diff_num)
-    fc_diff = np.fromfile(fin, dtype=np.uint8, count=fc_diff_num)
+    fc_merge_diff = np.fromfile(fin, dtype=np.uint8, count=fc_diff_num)
     value_array = np.fromfile(fin, dtype=np.float32, count=sum(nz_num))
-    # print(conv_diff[0:20])
-    # print(fc_diff[0:20])
-    # print(nz_num[0:20])
-    # print(value_array[0:20])
-    return conv_layer_length, nz_num, conv_diff, fc_diff, value_array
+
+    print(fc_merge_diff[0:10])
+
+    # Split 8 bits index to 4 bits index
+    fc_diff = []
+    for i in range(len(fc_merge_diff)):
+        fc_diff.append(fc_merge_diff[i])  # first 4 bits
+        fc_diff.append(fc_merge_diff[i])  # last 4 bits
+
+    print(len(nz_num), nz_num)
+    # 8 [  414    16 17721    30 58442    80   928     2]
+
+    print(conv_diff.size, conv_diff[0:20])
+    # 18181 [0 0 0 0 0 0 0 0 0 1 0 1 1 1 0 0 0 0 0 1]
+
+    print(fc_merge_diff.size, fc_diff[0:20])
+    # 29726 [30, 30, 152, 152, 52, 52, 40, 40, 15, 15, 32, 32, 33, 33, 15, 15, 74, 74, 23, 23]
+
+    print(value_array.size, value_array[0:20])
+    # 77632 [-5.8470100e-31 -5.8545675e-31 -5.4793001e+19 -3.5765236e-35
+    #  -7.3473500e+27 -2.2856749e-33 -2.6150384e+13 -2.1931591e+20
+    #  -6.8449156e+18 -2.4266166e+04 -2.0393425e+11  4.6884696e-30
+    #  -1.8285324e-32 -9.8099042e-24  1.1702544e-30  1.6096663e-19
+    #  -7.4775139e-29 -7.4215263e-01 -5.6639610e-06 -4.3209863e-11]
+
+
+    return conv_layer_num, nz_num, conv_diff, fc_diff, value_array

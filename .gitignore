@@ -6,12 +6,10 @@ __pycache__/
 # C extensions
 *.so
 
-baseline/result/
 pruning/result/
 quantization/result/
 data/
 # data
-!/baseline/result/.gitkeep 
 !/pruning/result/.gitkeep 
 !/data/.gitkeep
 !/quantization/result/.gitkeep

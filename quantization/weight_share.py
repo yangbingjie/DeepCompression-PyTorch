@@ -14,7 +14,9 @@ def share_weight(net, before_path, conv_bits, fc_bits):
         if layer_type == 'fc':
             bits = fc_bits
         layer_weight = value_array[index:index + nz_num[i * 2]]
+        print(np.any(np.isnan(layer_weight)))
         print(np.all(np.isfinite(layer_weight)))
+        print(layer_weight.dtype)
 
         index += nz_num[i * 2]
         min_weight = min(layer_weight)
@@ -23,7 +25,6 @@ def share_weight(net, before_path, conv_bits, fc_bits):
         space = np.linspace(min_weight, max_weight, num=2 ** bits)
         kmeans = KMeans(n_clusters=len(space), init=space.reshape(-1, 1), n_init=1, precompute_distances=True,
                         algorithm="full")
-        print(len(layer_weight))
         kmeans.fit(layer_weight.reshape(-1, 1))
         new_layer_weight = kmeans.cluster_centers_[kmeans.labels_].reshape(-1)
         # print(new_layer_weight)

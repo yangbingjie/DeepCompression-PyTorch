@@ -24,12 +24,12 @@ transform = transforms.Compose(
 kwargs = {'num_workers': 10, 'pin_memory': True} if use_cuda else {}
 batch_size = 512
 
-trainset = torchvision.datasets.CIFAR10(root='../data', train=True,
+trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
                                         download=True, transform=transform)
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
                                           shuffle=True, **kwargs)
 
-testset = torchvision.datasets.CIFAR10(root='../data', train=False,
+testset = torchvision.datasets.CIFAR10(root='./data', train=False,
                                        download=True, transform=transform)
 testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
                                          shuffle=False, **kwargs)
@@ -54,7 +54,7 @@ for j in range(retrain_num):
     net.prune_layer(prune_mode=retrain_mode)
     print('====================== Retrain', retrain_mode, j, 'Start ==================')
     net.compute_dropout_rate()
-    # net.fix_layer(fix_mode='conv' if retrain_mode == 'fc' else 'fc')
+    net.fix_layer(net, fix_mode='conv' if retrain_mode == 'fc' else 'fc')
     optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, net.parameters()), lr=lr / 100, momentum=0.9,
                                 weight_decay=1e-5)
     helper.train(net, trainloader=trainloader, criterion=criterion, optimizer=optimizer)

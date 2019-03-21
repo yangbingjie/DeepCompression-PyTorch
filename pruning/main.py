@@ -37,13 +37,13 @@ transform = transforms.Compose(
     [transforms.ToTensor(),
      transforms.Normalize([0.5], [0.5])])
 
-trainset = torchvision.datasets.MNIST(root='../data', train=True,
+trainset = torchvision.datasets.MNIST(root='./data', train=True,
                                       download=True, transform=transform)
 
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
                                           shuffle=True, **kwargs)
 
-testset = torchvision.datasets.MNIST(root='../data', train=False,
+testset = torchvision.datasets.MNIST(root='./data', train=False,
                                      download=True, transform=transform)
 testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
                                          shuffle=False, **kwargs)
@@ -62,7 +62,7 @@ lr = 1e-2
 # weight_decay is L2 regularization
 optimizer = optim.SGD(net.parameters(), lr=lr, momentum=0.9, weight_decay=1e-5)
 if os.path.exists(train_path):
-    net.load_state_dict(torch.load(train_path))
+    net.load_state_dict(torch.load(train_path, map_location='cpu' if not use_cuda else 'gpu'))
 helper.train(net, trainloader=trainloader, criterion=criterion, optimizer=optimizer, epoch=train_epoch)
 torch.save(net.state_dict(), train_path)
 log.log_file_size(train_path, 'K')
@@ -73,7 +73,7 @@ for j in range(retrain_num):
     retrain_mode = 'conv' if j % 2 == 0 else 'fc'
     net.prune_layer(prune_mode=retrain_mode)
     print('====================== Retrain', retrain_mode, j, 'Start ==================')
-    net.fix_layer(fix_mode='conv' if retrain_mode == 'fc' else 'fc')
+    net.fix_layer(net, fix_mode='conv' if retrain_mode == 'fc' else 'fc')
     # After pruning, the network is retrained with 1/10 of the original network's learning rate
     optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()), lr=lr / 10, weight_decay=1e-5)
     helper.train(net, trainloader=trainloader, criterion=criterion, optimizer=optimizer,
