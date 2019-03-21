@@ -17,14 +17,13 @@ if use_cuda:
     torch.cuda.manual_seed(seed)
 else:
     print('Not using CUDA!!!')
-kwargs = {'num_workers': 10, 'pin_memory': True} if use_cuda else {}
+kwargs = {'num_workers': 32, 'pin_memory': True} if use_cuda else {}
 multiprocessing.set_start_method('spawn')
-torch.cuda.manual_seed(42)
 
 transform = transforms.Compose(
     [transforms.ToTensor(),
      transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-batch_size = 128
+batch_size = 512
 trainset = torchvision.datasets.CIFAR10(root='../data', train=True,
                                         download=True, transform=transform)
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
@@ -41,10 +40,10 @@ if torch.cuda.is_available():
 
 train_path = './pruning/result/VGG16'
 retrain_path = './pruning/result/VGG16_retrain'
-retrain_num = 8
-train_epoch = 128
-retrain_epoch = 8
-lr = 1e-2
+retrain_num = 4
+train_epoch = 32
+retrain_epoch = 4
+lr = 1e-1
 net = VGG16(num_classes=10).to(device)
 optimizer = optim.SGD(list(net.parameters()), lr=lr, momentum=0.9, weight_decay=1e-5)
 if os.path.exists(train_path):
@@ -68,7 +67,7 @@ for j in range(retrain_num):
     x = filter(lambda p: p.requires_grad, list(net.parameters()))
     optimizer = optim.SGD(filter(lambda p: p.requires_grad, list(net.parameters())), lr=lr/100, momentum=0.9, weight_decay=1e-5)
     helper.train(net, trainloader=trainloader, criterion=criterion, optimizer=optimizer, log_frequency=50)
-    torch.save(net.state_dict(), retrain_path)
+    helper.save_sparse_model(net, retrain_path)
     log.log_file_size(retrain_path, 'M')
     helper.test(testloader, net)
     print('====================== ReTrain End ======================')

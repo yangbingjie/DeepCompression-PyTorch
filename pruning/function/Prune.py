@@ -81,7 +81,7 @@ class MaskConv2Module(MaskModule):
         weight = self.weight.data.cpu().numpy()
         weight_mask = self.weight_mask.data.cpu().numpy()
         weight = torch.from_numpy(weight * weight_mask).to(weight_dev)
-        input = input.cuda()
+        # input = input.cuda()
         if self.bias is not None:
             bias_dev = self.bias.device
             bias = self.bias.data.cpu().numpy()
@@ -104,9 +104,9 @@ class PruneModule(Module):
             return
         if sensitivity is None:
             sensitivity = {
-                'fc': 0.6,
-                'conv1': 0.1,
-                'conv': 0.3,
+                'fc': 0.7,
+                'conv1': 0.3,
+                'conv': 0.5,
             }
         print('===== prune', prune_mode, '=====')
         for name, module in self.named_modules():

@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from pruning.function.csr import WeightCSR
+import util.log as log
 
 
 def test(testloader, net):
@@ -16,14 +17,15 @@ def test(testloader, net):
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
+            # TODO delete
+            break
 
     print('Accuracy of the network on the test images: %d %%' % (100 * correct / total))
 
 
-
 def train(net, trainloader, criterion, optimizer, epoch=1, log_frequency=100):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    lambda1 = lambda epoch: 0.95 ** epoch
+    lambda1 = lambda epoch: 0.98 ** epoch
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda1)
     net.to(device)
     for epoch in range(epoch):  # loop over the dataset multiple times
@@ -58,6 +60,8 @@ def train(net, trainloader, criterion, optimizer, epoch=1, log_frequency=100):
                 print('[%d, %5d] loss: %.3f' %
                       (epoch + 1, i + 1, running_loss / log_frequency))
                 running_loss = 0.0
+            # TODO delete
+            break
 
 
 def save_sparse_model(net, path):
@@ -87,13 +91,46 @@ def save_sparse_model(net, path):
     if length % 2 != 0:
         fc_diff_array.append(0)
     fc_diff = []
-    for i in range(int(1 - len(fc_diff_array) / 2)):
+    for i in range(int(len(fc_diff_array) / 2) - 1):
         fc_diff.append(int(str(fc_diff_array[2 * i - 1]) + str(fc_diff_array[2 * i])))
-    save_obj = {
-        'nz_num': np.asarray(nz_num, dtype=np.uint32),
-        'conv_diff': np.asarray(conv_diff_array, dtype=np.uint8),
-        'fc_diff': np.asarray(fc_diff, dtype=np.uint8),
-        'value': np.asarray(value_array, dtype=np.float32)
-    }
-    torch.save(save_obj, path)
 
+    nz_num = np.asarray(nz_num, dtype=np.uint32)
+    conv_diff_array = np.asarray(conv_diff_array, dtype=np.uint8)
+    fc_diff = np.asarray(fc_diff, dtype=np.uint8)
+    value_array = np.asarray(value_array, dtype=np.float32)
+
+    # print(nz_num[0:20])
+    # print(conv_diff_array.size, conv_diff_array[0:20])
+    # print(fc_diff.size, fc_diff[0:20])
+    # print(value_array.size, value_array[0:20])
+
+    # Set to the same dtype uint8 to save
+    nz_num.dtype = np.uint8
+    value_array.dtype = np.uint8
+    sparse_obj = np.concatenate((nz_num, conv_diff_array, fc_diff, value_array))
+
+    sparse_obj.tofile(path)
+
+
+def load_sparse_model(net, path):
+    conv_layer_length = 0
+    fc_layer_length = 0
+    fin = open(path, 'rb')
+    for name, x in net.named_parameters():
+        if name.endswith('mask'):
+            continue
+        if name.startswith('conv'):
+            conv_layer_length += 1
+        elif name.startswith('fc'):
+            fc_layer_length += 1
+    nz_num = np.fromfile(fin, dtype=np.uint32, count=conv_layer_length + fc_layer_length)
+    conv_diff_num = sum(nz_num[:conv_layer_length])
+    fc_diff_num = int(sum(nz_num[conv_layer_length:]) / 2)
+    conv_diff = np.fromfile(fin, dtype=np.uint8, count=conv_diff_num)
+    fc_diff = np.fromfile(fin, dtype=np.uint8, count=fc_diff_num)
+    value_array = np.fromfile(fin, dtype=np.float32, count=sum(nz_num))
+    # print(conv_diff[0:20])
+    # print(fc_diff[0:20])
+    # print(nz_num[0:20])
+    # print(value_array[0:20])
+    return conv_layer_length, nz_num, conv_diff, fc_diff, value_array
