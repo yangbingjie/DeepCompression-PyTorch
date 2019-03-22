@@ -127,28 +127,6 @@ class PruneModule(Module):
                 p.grad.data = torch.from_numpy(grad_tensor).to(device)
         # print('====== prune end ======')
 
-    # # fix_mode: fix 'conv' or 'fc'
-    # # 'not': is not retrain
-    # # 'conv': retrain conv layer, fix fc layer
-    # # 'fc': retrain fc layer, fix conv layer
-    # def fix_layer(self, net, fix_mode='not'):
-    #     if fix_mode == 'not':
-    #         return
-    #     print('===== fix mode is', fix_mode, '=====')
-    #     for name, p in net.named_parameters():
-    #         if name.endswith('mask'):
-    #             continue
-    #         elif name.startswith(fix_mode):
-    #             weight_dev = p.device
-    #             weight = p.data.cpu()
-    #             weight.requires_grad = False
-    #             weight.to(weight_dev)
-    #         else:
-    #             weight_dev = p.device
-    #             weight = p.data.cpu()
-    #             weight.requires_grad = True
-    #             weight.to(weight_dev)
-
     # fix_mode: fix 'conv' or 'fc'
     # 'not': is not retrain
     # 'conv': retrain conv layer, fix fc layer
@@ -164,5 +142,5 @@ class PruneModule(Module):
                 p.requires_grad = False
             else:
                 p.requires_grad = True
-        print('===== fix mode end', fix_mode, '====')
+        print('===== fix mode end', '======')
 

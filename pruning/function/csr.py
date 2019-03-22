@@ -1,4 +1,5 @@
 from scipy.sparse import csr_matrix
+import torch
 
 
 class WeightCSR(csr_matrix):
@@ -21,7 +22,7 @@ class WeightCSR(csr_matrix):
                 diff_list.append(max_index - 1)
                 value_list.append(0)
                 last_index = i
-            elif abs(value) < 1e-6:
+            elif abs(value) < 1e-5:
                 continue
             else:
                 self.nz_num += 1

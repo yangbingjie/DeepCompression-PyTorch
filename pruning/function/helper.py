@@ -20,11 +20,13 @@ def test(testloader, net):
     print('Accuracy of the network on the test images: %d %%' % (100 * correct / total))
 
 
-def train(net, trainloader, valid_loader, criterion, optimizer, epoch=1, log_frequency=100):
-    net.train()
+def train(net, trainloader, valid_loader, criterion, optimizer, epoch=1, loss_accept=1e-3):
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1,
+                                                           patience=3, verbose=True)
     for epoch in range(epoch):  # loop over the dataset multiple times
         train_loss = []
         valid_loss = []
+        net.train()
         for inputs, labels in trainloader:
             # get the inputs
             inputs = inputs.cuda()
@@ -33,21 +35,28 @@ def train(net, trainloader, valid_loader, criterion, optimizer, epoch=1, log_fre
             # zero the parameter gradients
             optimizer.zero_grad()
             # forward + backward + optimize
-            outputs = net(inputs)
-            loss = criterion(outputs, labels)
+            outputs = net(inputs)  # forward
+            loss = criterion(outputs, labels)  # compute loss
             loss.backward()  # backward
             optimizer.step()  # update weight
 
             train_loss.append(loss.item())
-        # net.eval()
-        for inputs, labels in valid_loader:
-            inputs = inputs.cuda()
-            labels = labels.cuda()
-            output = net(inputs)
-            loss = criterion(output, labels)
-            valid_loss.append(loss.item())
-        print("Epoch:", epoch, "Training Loss: ", round(np.mean(train_loss), 5),
-              "Valid Loss: ", round(np.mean(valid_loss), 5))
+        net.eval()
+        with torch.no_grad():
+            for inputs, labels in valid_loader:
+                inputs = inputs.cuda()
+                labels = labels.cuda()
+                output = net(inputs)
+                loss = criterion(output, labels)
+                valid_loss.append(loss.item())
+
+            mean_train_loss = np.mean(train_loss)
+            mean_valid_loss = np.mean(valid_loss)
+            print("Epoch:", epoch, "Training Loss: %5f" % mean_train_loss,
+                  "Valid Loss: %5f" % mean_valid_loss)
+            scheduler.step(mean_valid_loss)
+            if mean_valid_loss < loss_accept:
+                break
 
 
 def save_sparse_model(net, path):
@@ -58,7 +67,7 @@ def save_sparse_model(net, path):
     total = 0
     for key, tensor in net.state_dict().items():
         if key.endswith('mask'):
-            total += tensor.cpu().numpy().reshape(-1).size
+            total += torch.numel(tensor)
             continue
         if key.startswith('conv'):
             # 8 bits for conv layer index diff
