@@ -3,7 +3,7 @@ from scipy.sparse import csr_matrix
 
 class WeightCSR(csr_matrix):
     def __init__(self, tensor, index_bits=8):
-        self.tensor = tensor.cpu().numpy().reshape(-1)
+        self.tensor = tensor.reshape(-1)
         # non zero number
         self.nz_num = 0
         self.index_bits = index_bits
@@ -18,7 +18,6 @@ class WeightCSR(csr_matrix):
             diff = i - last_index - 1
             if diff >= max_index - 1:
                 self.nz_num += 1
-                # diff_list.append(bin(max_index - 1)[2:].zfill(self.index_bits))
                 diff_list.append(max_index - 1)
                 value_list.append(0)
                 last_index = i
@@ -26,7 +25,6 @@ class WeightCSR(csr_matrix):
                 continue
             else:
                 self.nz_num += 1
-                # diff_list.append(bin(diff)[2:].zfill(self.index_bits))
                 diff_list.append(diff)
                 value_list.append(value)
                 last_index = i

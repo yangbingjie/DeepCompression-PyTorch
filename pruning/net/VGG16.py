@@ -1,4 +1,5 @@
 import math
+import torch
 import torch.nn as nn
 from torch.autograd import Variable
 import torch.nn.functional as F
@@ -70,20 +71,20 @@ class VGG16(prune.PruneModule):
                 nn.init.constant_(m.bias, 0)
 
     def compute_dropout_rate(self):
-        fc_list = [self.fc1, self.fc2]
+        fc_list = [self.fc1, self.fc2, self.fc3]
         for index in range(0, 2):
             layer = fc_list[index]
             prune_num = 0
             basic = 0
             if layer.bias is not None:
-                bias_arr = (layer.bias_mask.data.cuda().numpy())
-                prune_num = bias_arr.sum()
-                basic = bias_arr.size
-            weight_arr = (layer.weight_mask.data.cuda().numpy())
-            prune_num = prune_num + weight_arr.sum()
-            basic = basic + weight_arr.size
+                bias_arr = layer.bias_mask.data
+                prune_num = int(torch.sum(bias_arr))
+                basic = int(torch.numel(bias_arr))
+            weight_arr = layer.weight_mask.data
+            prune_num = prune_num + int(torch.sum(weight_arr))
+            basic = basic + int(torch.numel(weight_arr))
             p = 0.5 * math.sqrt(prune_num / basic)
-            print('The drop out rate is:', round(p, 4))
+            print('The drop out rate is:', round(p, 6))
             drop_rate[index] = p
 
     def num_flat_features(self, x):

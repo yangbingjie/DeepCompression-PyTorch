@@ -12,10 +12,10 @@ class MaskModule(Module):
         weight_mask_dev = self.weight_mask.device
         bias_dev = self.bias.device
         bias_mask_dev = self.bias_mask.device
-        weight = self.weight.data.cuda().numpy()
-        weight_mask = self.weight_mask.data.cuda().numpy()
-        bias = self.bias.data.cuda().numpy()
-        bias_mask = self.bias_mask.data.cuda().numpy()
+        weight = self.weight.data.cpu().numpy()
+        weight_mask = self.weight_mask.data.cpu().numpy()
+        bias = self.bias.data.cpu().numpy()
+        bias_mask = self.bias_mask.data.cpu().numpy()
         new_weight_mask = np.where(abs(weight) < threshold, 0, weight_mask)
         self.weight.data = torch.from_numpy(weight * new_weight_mask).to(weight_dev)
         self.weight_mask.data = torch.from_numpy(new_weight_mask).to(weight_mask_dev)
@@ -23,7 +23,6 @@ class MaskModule(Module):
             new_bias_mask = np.where(abs(bias) < threshold, 0, bias_mask)
             self.bias.data = torch.from_numpy(bias * new_bias_mask).to(bias_dev)
             self.bias_mask.data = torch.from_numpy(new_bias_mask).to(bias_mask_dev)
-
 
     def reset_parameters(self):
         nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
@@ -36,14 +35,13 @@ class MaskModule(Module):
 class MaskLinearModule(MaskModule):
     def __init__(self, in_features, out_features, bias=True):
         super(MaskLinearModule, self).__init__()
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.in_features = in_features
         self.out_features = out_features
-        self.weight = nn.Parameter(torch.Tensor(out_features, in_features), requires_grad=True).cuda()
-        self.weight_mask = nn.Parameter(torch.ones(self.weight.shape).byte(), requires_grad=False).cuda()
+        self.weight = nn.Parameter(torch.Tensor(out_features, in_features), requires_grad=True)
+        self.weight_mask = nn.Parameter(torch.ones(self.weight.shape).byte(), requires_grad=False)
         if bias:
-            self.bias = nn.Parameter(torch.Tensor(out_features), requires_grad=True).cuda()
-            self.bias_mask = nn.Parameter(torch.ones(out_features).byte(), requires_grad=False).cuda()
+            self.bias = nn.Parameter(torch.Tensor(out_features), requires_grad=True)
+            self.bias_mask = nn.Parameter(torch.ones(out_features).byte(), requires_grad=False)
         else:
             self.register_parameter('bias', None)
         self.reset_parameters()
@@ -60,7 +58,6 @@ class MaskConv2Module(MaskModule):
     def __init__(self, in_channels, out_channels, kernel_size, stride=1,
                  padding=0, dilation=1, groups=1, bias=True):
         super(MaskConv2Module, self).__init__()
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.kernel_size = kernel_size
@@ -69,11 +66,11 @@ class MaskConv2Module(MaskModule):
         self.dilation = dilation
         self.groups = groups
         self.weight = nn.Parameter(torch.Tensor(out_channels, in_channels // groups, *(kernel_size, kernel_size)),
-                                   requires_grad=True).cuda()
-        self.weight_mask = nn.Parameter(torch.ones(self.weight.shape).byte(), requires_grad=False).cuda()
+                                   requires_grad=True)
+        self.weight_mask = nn.Parameter(torch.ones(self.weight.shape).byte(), requires_grad=False)
         if bias:
-            self.bias = nn.Parameter(torch.Tensor(out_channels), requires_grad=True).cuda()
-            self.bias_mask = nn.Parameter(torch.ones(out_channels).byte(), requires_grad=False).cuda()
+            self.bias = nn.Parameter(torch.Tensor(out_channels), requires_grad=True)
+            self.bias_mask = nn.Parameter(torch.ones(out_channels).byte(), requires_grad=False)
         else:
             self.register_parameter('bias', None)
         self.reset_parameters()
@@ -114,7 +111,7 @@ class PruneModule(Module):
                     s = sensitivity['fc']
                 else:
                     s = sensitivity['conv']
-                threshold = np.std(module.weight.data.cuda().numpy()) * s
+                threshold = np.std(module.weight.data.cpu().numpy()) * s
                 # print('Pruning layer', name, ' threshold: ', round(threshold, 4))
                 module.prune(threshold)
 
@@ -123,13 +120,34 @@ class PruneModule(Module):
             for name, p in self.named_parameters():
                 if name.endswith('mask') or p.grad is None or p.data is None:
                     continue
-                    # p.data数据可能在gpu里，.cuda()可以将值拷贝一份到cpu
-                tensor = p.data.cuda().numpy()
-                grad_tensor = p.grad.data.cuda().numpy()
+                    # p.data数据可能在gpu里，.cpu()可以将值拷贝一份到cpu
+                tensor = p.data.cpu().numpy()
+                grad_tensor = p.grad.data.cpu().numpy()
                 grad_tensor = np.where(tensor < 1e-6, 0, grad_tensor)
                 p.grad.data = torch.from_numpy(grad_tensor).to(device)
         # print('====== prune end ======')
 
+    # # fix_mode: fix 'conv' or 'fc'
+    # # 'not': is not retrain
+    # # 'conv': retrain conv layer, fix fc layer
+    # # 'fc': retrain fc layer, fix conv layer
+    # def fix_layer(self, net, fix_mode='not'):
+    #     if fix_mode == 'not':
+    #         return
+    #     print('===== fix mode is', fix_mode, '=====')
+    #     for name, p in net.named_parameters():
+    #         if name.endswith('mask'):
+    #             continue
+    #         elif name.startswith(fix_mode):
+    #             weight_dev = p.device
+    #             weight = p.data.cpu()
+    #             weight.requires_grad = False
+    #             weight.to(weight_dev)
+    #         else:
+    #             weight_dev = p.device
+    #             weight = p.data.cpu()
+    #             weight.requires_grad = True
+    #             weight.to(weight_dev)
 
     # fix_mode: fix 'conv' or 'fc'
     # 'not': is not retrain
@@ -143,12 +161,8 @@ class PruneModule(Module):
             if name.endswith('mask'):
                 continue
             elif name.startswith(fix_mode):
-                weight_dev = p.device
-                weight = p.data.cuda()
-                weight.requires_grad = False
-                weight.to(weight_dev)
+                p.requires_grad = False
             else:
-                weight_dev = p.device
-                weight = p.data.cuda()
-                weight.requires_grad = True
-                weight.to(weight_dev)
+                p.requires_grad = True
+        print('===== fix mode end', fix_mode, '====')
+

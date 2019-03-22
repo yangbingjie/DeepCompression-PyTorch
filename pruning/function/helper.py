@@ -1,17 +1,17 @@
 import torch
 import numpy as np
 from pruning.function.csr import WeightCSR
+from torch.autograd import Variable
 
 
 def test(testloader, net):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     correct = 0
     total = 0
-    net = net.to(device)
     with torch.no_grad():
         for data in testloader:
             images, labels = data
-            images, labels = images.to(device), labels.to(device)
+            images = images.cuda()
+            labels = labels.cuda()
             outputs = net(images)
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
@@ -21,15 +21,14 @@ def test(testloader, net):
 
 
 def train(net, trainloader, criterion, optimizer, epoch=1, log_frequency=100):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    net.train()
     for epoch in range(epoch):  # loop over the dataset multiple times
         running_loss = 0.0
         for i, data in enumerate(trainloader, 0):
             # get the inputs
             inputs, labels = data
-            inputs, labels = inputs.to(device), labels.to(device)
-            inputs.cuda()
-            labels.cuda()
+            inputs = inputs.cuda()
+            labels = labels.cuda()
 
             # zero the parameter gradients
             optimizer.zero_grad()
@@ -42,7 +41,7 @@ def train(net, trainloader, criterion, optimizer, epoch=1, log_frequency=100):
             # print statistics
             running_loss += loss.item()
             if i % log_frequency == log_frequency - 1:  # print every mini-batches
-                print('[%d, %5d] loss: %.3f' %
+                print('[%d, %5d] loss: %.5f' %
                       (epoch + 1, i + 1, running_loss / log_frequency))
                 running_loss = 0.0
 
