@@ -20,13 +20,13 @@ def test(testloader, net):
     print('Accuracy of the network on the test images: %d %%' % (100 * correct / total))
 
 
-def train(net, trainloader, criterion, optimizer, epoch=1, log_frequency=100):
+def train(net, trainloader, valid_loader, criterion, optimizer, epoch=1, log_frequency=100):
     net.train()
     for epoch in range(epoch):  # loop over the dataset multiple times
-        running_loss = 0.0
-        for i, data in enumerate(trainloader, 0):
+        train_loss = []
+        valid_loss = []
+        for inputs, labels in trainloader:
             # get the inputs
-            inputs, labels = data
             inputs = inputs.cuda()
             labels = labels.cuda()
 
@@ -38,12 +38,16 @@ def train(net, trainloader, criterion, optimizer, epoch=1, log_frequency=100):
             loss.backward()  # backward
             optimizer.step()  # update weight
 
-            # print statistics
-            running_loss += loss.item()
-            if i % log_frequency == log_frequency - 1:  # print every mini-batches
-                print('[%d, %5d] loss: %.5f' %
-                      (epoch + 1, i + 1, running_loss / log_frequency))
-                running_loss = 0.0
+            train_loss.append(loss.item())
+        # net.eval()
+        for inputs, labels in valid_loader:
+            inputs = inputs.cuda()
+            labels = labels.cuda()
+            output = net(inputs)
+            loss = criterion(output, labels)
+            valid_loss.append(loss.item())
+        print("Epoch:", epoch, "Training Loss: ", round(np.mean(train_loss), 5),
+              "Valid Loss: ", round(np.mean(valid_loss), 5))
 
 
 def save_sparse_model(net, path):
@@ -147,6 +151,5 @@ def load_sparse_model(net, path):
     #  -6.8449156e+18 -2.4266166e+04 -2.0393425e+11  4.6884696e-30
     #  -1.8285324e-32 -9.8099042e-24  1.1702544e-30  1.6096663e-19
     #  -7.4775139e-29 -7.4215263e-01 -5.6639610e-06 -4.3209863e-11]
-
 
     return conv_layer_num, nz_num, conv_diff, fc_diff, value_array

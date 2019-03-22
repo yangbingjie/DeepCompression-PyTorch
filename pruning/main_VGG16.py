@@ -10,27 +10,32 @@ import util.log as log
 import torch.optim as optim
 
 use_cuda = torch.cuda.is_available()
-batch_size = 256
+train_batch_size = 256
 retrain_num = 2
 train_epoch = 8
 retrain_epoch = 2
+test_batch_size = 64
 lr = 1e-3
 train_log_frequency = 50
 retrain_log_frequency = 50
+data_dir = './data'
 transform = transforms.Compose(
     [transforms.ToTensor(),
      transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
 kwargs = {'num_workers': 16, 'pin_memory': True} if use_cuda else {}
 
-trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
+trainset = torchvision.datasets.CIFAR10(root=data_dir, train=True,
                                         download=True, transform=transform)
-trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
+trainloader = torch.utils.data.DataLoader(trainset, batch_size=train_batch_size,
                                           shuffle=True, **kwargs)
-
-testset = torchvision.datasets.CIFAR10(root='./data', train=False,
+validset = torchvision.datasets.CIFAR10(root=data_dir, train=True,
+                                        download=True, transform=transform)
+valid_loader = torch.utils.data.DataLoader(validset, batch_size=train_batch_size,
+                                           shuffle=True, **kwargs)
+testset = torchvision.datasets.CIFAR10(root=data_dir, train=False,
                                        download=True, transform=transform)
-testloader = torch.utils.data.DataLoader(testset, batch_size=100,
+testloader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
                                          shuffle=False, **kwargs)
 
 train_path = './pruning/result/VGG16'
@@ -53,8 +58,8 @@ if use_cuda:
 if os.path.exists(train_path):
     net.load_state_dict(torch.load(train_path))
 else:
-    helper.train(net, trainloader=trainloader, criterion=criterion, optimizer=optimizer, epoch=train_epoch,
-                 log_frequency=train_log_frequency)
+    helper.train(net, trainloader=trainloader, valid_loader=valid_loader, criterion=criterion,
+                 optimizer=optimizer, epoch=train_epoch, log_frequency=train_log_frequency)
     torch.save(net.state_dict(), train_path)
 
 log.log_file_size(train_path, 'M')
@@ -82,8 +87,8 @@ for j in range(retrain_num):
     x = filter(lambda p: p.requires_grad, list(net.parameters()))
     optimizer = optim.SGD(filter(lambda p: p.requires_grad, list(net.parameters())), lr=lr / 100, momentum=0.9,
                           weight_decay=1e-5)
-    helper.train(net, trainloader=trainloader, criterion=criterion, optimizer=optimizer, epoch=retrain_epoch,
-                 log_frequency=retrain_log_frequency)
+    helper.train(net, trainloader=trainloader, valid_loader=valid_loader, criterion=criterion,
+                 optimizer=optimizer, epoch=retrain_epoch, log_frequency=retrain_log_frequency)
     helper.test(testloader, net)
     helper.save_sparse_model(net, retrain_path)
     log.log_file_size(retrain_path, 'M')
