@@ -2,11 +2,14 @@ import torch
 import numpy as np
 from pruning.function.csr import WeightCSR
 from torch.autograd import Variable
+import time
+from collections import deque
 
 
 def test(testloader, net):
     correct = 0
     total = 0
+    net.eval()
     with torch.no_grad():
         for data in testloader:
             images, labels = data
@@ -20,9 +23,9 @@ def test(testloader, net):
     print('Accuracy of the network on the test images: %d %%' % (100 * correct / total))
 
 
-def train(net, trainloader, valid_loader, criterion, optimizer, epoch=1, loss_accept=1e-3):
+def train(testloader, net, trainloader, valid_loader, criterion, optimizer, epoch=1, loss_accept=1e-3):
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1,
-                                                           patience=3, verbose=True)
+                                                           patience=1, verbose=True)
     for epoch in range(epoch):  # loop over the dataset multiple times
         train_loss = []
         valid_loss = []
@@ -54,67 +57,80 @@ def train(net, trainloader, valid_loader, criterion, optimizer, epoch=1, loss_ac
             mean_valid_loss = np.mean(valid_loss)
             print("Epoch:", epoch, "Training Loss: %5f" % mean_train_loss,
                   "Valid Loss: %5f" % mean_valid_loss)
+            test(testloader, net)
             scheduler.step(mean_valid_loss)
             if mean_valid_loss < loss_accept:
                 break
 
 
 def save_sparse_model(net, path):
+    # torch.save(net.state_dict(), path)
+    # for key, tensor in net.state_dict().items():
+    #     if key.endswith('mask'):
+    #         a = int(torch.sum(tensor))
+    #         b = int(torch.numel(tensor))
+    #         print(a, b, a / b)
+
     nz_num = []
-    conv_diff_array = []
-    fc_diff_array = []
-    value_array = []
-    total = 0
+    conv_diff_array = deque([])
+    fc_diff_array = deque([])
+    conv_value_array = deque([])
+    fc_value_array = deque([])
     for key, tensor in net.state_dict().items():
         if key.endswith('mask'):
-            total += torch.numel(tensor)
             continue
         if key.startswith('conv'):
             # 8 bits for conv layer index diff
+
+            print('=======', key, 'start =========')
+            start = time.clock()
             csr_matrix = WeightCSR(tensor, index_bits=8)
             diff_list, value_list = csr_matrix.tensor_to_csr()
+            elapsed = (time.clock() - start)
+            print('csr', round(elapsed, 5))
+
+            start = time.clock()
             conv_diff_array.extend(diff_list)
+            conv_value_array.extend(value_list)
+            elapsed = (time.clock() - start)
+            print('extend', round(elapsed, 5))
+            print('=======', key, len(diff_list), 'end =======')
+
         else:
             # 4 bits for fc layer index diff
+            print('=======', key, 'start =========')
+            start = time.clock()
             csr_matrix = WeightCSR(tensor, index_bits=4)
             diff_list, value_list = csr_matrix.tensor_to_csr()
+            elapsed = (time.clock() - start)
+            print('csr', round(elapsed, 5))
+
+            start = time.clock()
             fc_diff_array.extend(diff_list)
+            fc_value_array.extend(value_list)
+            elapsed = (time.clock() - start)
+            print('extend', round(elapsed, 5))
+            print('=======', key, len(diff_list), 'end =======')
+
         nz_num.append(csr_matrix.nz_num)
-        value_array.extend(value_list)
-    print('prune rate: ', round(total / sum(nz_num), 5))
+
     length = len(fc_diff_array)
     if length % 2 != 0:
         fc_diff_array.append(0)
-    # print(fc_diff_array[0:20])
-    # [0, 15, 2, 5, 2, 4, 0, 1, 5, 3, 2, 3, 3, 0, 15, 7, 4, 2, 3, 8]
-    # Merge 4 bits index to 8 bits index
     fc_merge_diff = []
     for i in range(int(len(fc_diff_array) / 2) - 1):
         fc_merge_diff.append((fc_diff_array[2 * i] << 4) + fc_diff_array[2 * i + 1])
     nz_num = np.asarray(nz_num, dtype=np.uint32)
     conv_diff_array = np.asarray(conv_diff_array, dtype=np.uint8)
     fc_diff = np.asarray(fc_merge_diff, dtype=np.uint8)
-    value_array = np.asarray(value_array, dtype=np.float32)
-
-    print(len(nz_num), nz_num)
-    # [414    16 17721    30 58444    80   928     2]
-
-    print(conv_diff_array.size, conv_diff_array[0:20])
-    # 18181 [0 0 0 0 0 0 0 0 0 1 0 1 1 1 0 0 0 0 0 1]
-
-    print(fc_diff.size, fc_diff[0:20])
-    # 29726 [15  37  36   1  83  35  48 247  66  56 243   1  49 135 117 193  75 116 49 12]
-
-    print(value_array.size, value_array[0:20])
-    # 77635 [0.09329121  0.12394819  0.15035458  0.16515684 -0.11556916  0.11080728
-    #  -0.19227423  0.18155988 -0.12307335 -0.0724294   0.11607318 -0.17173317
-    #  -0.11070834  0.09389408 -0.11057968  0.13396473 -0.07218766  0.12388527
-    #  -0.13775156  0.13474926]
+    conv_value_array = np.asarray(conv_value_array, dtype=np.float32)
+    fc_value_array = np.asarray(fc_value_array, dtype=np.float32)
 
     # Set to the same dtype uint8 to save
     nz_num.dtype = np.uint8
-    value_array.dtype = np.uint8
-    sparse_obj = np.concatenate((nz_num, conv_diff_array, fc_diff, value_array))
+    conv_value_array.dtype = np.uint8
+    fc_value_array.dtype = np.uint8
+    sparse_obj = np.concatenate((nz_num, conv_diff_array, fc_diff, conv_value_array, fc_value_array))
 
     sparse_obj.tofile(path)
 

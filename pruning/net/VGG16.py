@@ -5,7 +5,7 @@ from torch.autograd import Variable
 import torch.nn.functional as F
 import pruning.function.Prune as prune
 
-drop_rate = [0.5, 0.5]
+
 class VGG16(prune.PruneModule):
     def __init__(self, num_classes=1000, init_weights=True):
         super(VGG16, self).__init__()
@@ -25,6 +25,7 @@ class VGG16(prune.PruneModule):
         self.fc1 = prune.MaskLinearModule(512 * 7 * 7, 4096)
         self.fc2 = prune.MaskLinearModule(4096, 4096)
         self.fc3 = prune.MaskLinearModule(4096, num_classes)
+        self.drop_rate = [0.5, 0.5]
         if init_weights:
             self._initialize_weights()
 
@@ -50,9 +51,9 @@ class VGG16(prune.PruneModule):
         x = F.adaptive_avg_pool2d(x, (7, 7))
         x = x.view(x.size(0), -1)
         x = F.relu(self.fc1(x))
-        x = nn.functional.dropout(x, p=drop_rate[0], training=True, inplace=False)
+        x = nn.functional.dropout(x, p=self.drop_rate[0], training=True, inplace=False)
         x = F.relu(self.fc2(x))
-        x = nn.functional.dropout(x, p=drop_rate[1], training=True, inplace=False)
+        x = nn.functional.dropout(x, p=self.drop_rate[1], training=True, inplace=False)
         x = self.fc3(x)
         x = F.log_softmax(x, dim=1)
         return x
@@ -73,19 +74,34 @@ class VGG16(prune.PruneModule):
     def compute_dropout_rate(self):
         fc_list = [self.fc1, self.fc2, self.fc3]
         for index in range(0, 2):
-            layer = fc_list[index]
-            prune_num = 0
-            basic = 0
-            if layer.bias is not None:
-                bias_arr = layer.bias_mask.data
-                prune_num = int(torch.sum(bias_arr))
-                basic = int(torch.numel(bias_arr))
-            weight_arr = layer.weight_mask.data
-            prune_num = prune_num + int(torch.sum(weight_arr))
-            basic = basic + int(torch.numel(weight_arr))
-            p = 0.5 * math.sqrt(prune_num / basic)
-            print('The drop out rate is:', round(p, 6))
-            drop_rate[index] = p
+            # Last Layer
+            last_layer = fc_list[index]
+            last_not_prune_num = 0
+            last_total_num = 0
+            if last_layer.bias is not None:
+                bias_arr = last_layer.bias_mask.data
+                last_not_prune_num = int(torch.sum(bias_arr))
+                last_total_num = int(torch.numel(bias_arr))
+            weight_arr = last_layer.weight_mask.data
+            last_not_prune_num += int(torch.sum(weight_arr))
+            last_total_num += int(torch.numel(weight_arr))
+
+            # Next Layer
+            next_layer = fc_list[index + 1]
+            next_not_prune_num = 0
+            next_total_num = 0
+            if next_layer.bias is not None:
+                bias_arr = next_layer.bias_mask.data
+                next_not_prune_num = int(torch.sum(bias_arr.sum()))
+                next_total_num = int(torch.numel(bias_arr))
+            weight_arr = next_layer.weight_mask.data
+            next_not_prune_num += int(torch.sum(weight_arr))
+            next_total_num += int(torch.numel(weight_arr))
+
+            # p = 0.5 * math.sqrt(last_not_prune_num * next_not_prune_num / last_total_num * next_total_num)
+            p = 0.5 * math.sqrt((last_not_prune_num / last_total_num) * (next_not_prune_num / next_total_num))
+            print('The drop out rate is:', round(p, 5))
+            self.drop_rate[index] = p
 
     def num_flat_features(self, x):
         size = x.size()[1:]

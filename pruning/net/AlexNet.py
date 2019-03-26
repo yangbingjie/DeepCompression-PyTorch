@@ -1,4 +1,5 @@
 import math
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pruning.function.Prune as prune
@@ -39,32 +40,31 @@ class AlexNet(prune.PruneModule):
         for index in range(0, 2):
             # Last Layer
             last_layer = fc_list[index]
-            last_prune_num = 0
+            last_not_prune_num = 0
             last_total_num = 0
             if last_layer.bias is not None:
-                bias_arr = (last_layer.bias_mask.data.cuda().numpy())
-                last_prune_num = bias_arr.sum()
-                last_total_num = bias_arr.size
-            weight_arr = (last_layer.weight_mask.data.cuda().numpy())
-            last_prune_num += weight_arr.sum()
-            last_total_num += weight_arr.size
+                bias_arr = last_layer.bias_mask.data
+                last_not_prune_num = int(torch.sum(bias_arr))
+                last_total_num = int(torch.numel(bias_arr))
+            weight_arr = last_layer.weight_mask.data
+            last_not_prune_num += int(torch.sum(weight_arr))
+            last_total_num += int(torch.numel(weight_arr))
 
             # Next Layer
             next_layer = fc_list[index + 1]
-            next_prune_num = 0
+            next_not_prune_num = 0
             next_total_num = 0
             if next_layer.bias is not None:
-                bias_arr = (next_layer.bias_mask.data.cuda().numpy())
-                next_prune_num = bias_arr.sum()
-                next_total_num = bias_arr.size
-            weight_arr = (next_layer.weight_mask.data.cuda().numpy())
-            next_prune_num += weight_arr.sum()
-            next_total_num += weight_arr.size
+                bias_arr = next_layer.bias_mask.data
+                next_not_prune_num = int(torch.sum(bias_arr.sum()))
+                next_total_num = int(torch.numel(bias_arr))
+            weight_arr = next_layer.weight_mask.data
+            next_not_prune_num += int(torch.sum(weight_arr))
+            next_total_num += int(torch.numel(weight_arr))
 
-            #
-            # p = 0.5 * math.sqrt(last_prune_num * next_prune_num / last_total_num * next_total_num)
-            p = 0.5 * math.sqrt((last_prune_num / last_total_num) * (next_prune_num / next_total_num))
-            print('The drop out rate is:', round(p,4))
+            # p = 0.5 * math.sqrt(last_not_prune_num * next_not_prune_num / last_total_num * next_total_num)
+            p = 0.5 * math.sqrt((last_not_prune_num / last_total_num) * (next_not_prune_num / next_total_num))
+            print('The drop out rate is:', round(p, 5))
             self.drop_rate[index] = p
 
     def num_flat_features(self, x):

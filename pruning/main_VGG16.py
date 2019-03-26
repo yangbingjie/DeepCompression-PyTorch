@@ -11,19 +11,21 @@ import util.log as log
 import torch.optim as optim
 from torch.utils.data.sampler import SubsetRandomSampler
 
+# os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+parallel_gpu = False
 use_cuda = torch.cuda.is_available()
-train_batch_size = 1024
-retrain_num = 8
-train_epoch = 64
-retrain_epoch = 8
-test_batch_size = 64
+train_batch_size = 128
+retrain_num = 1
+train_epoch = 0
+retrain_epoch = 1
+test_batch_size = 128
 loss_accept = 1e-2
 lr = 1e-2
-valid_size = 0.1
+
+valid_size = 0.4
 data_dir = './data'
-transform = transforms.Compose(
-    [transforms.ToTensor(),
-     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+transform = transforms.Compose([transforms.ToTensor(),
+                                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
 kwargs = {'num_workers': 16, 'pin_memory': True} if use_cuda else {}
 
@@ -35,7 +37,6 @@ validset = torchvision.datasets.CIFAR10(root=data_dir, train=True,
 
 testset = torchvision.datasets.CIFAR10(root=data_dir, train=False,
                                        download=True, transform=transform)
-
 
 num_test = len(testset)
 indices = list(range(num_test))
@@ -55,10 +56,10 @@ valid_loader = torch.utils.data.DataLoader(validset, batch_size=test_batch_size,
 testloader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
                                          sampler=test_sampler, **kwargs)
 
-print('length of trainset, validset and testset')
-print(len(trainloader))
-print(len(valid_loader))
-print(len(testloader))
+# print('length of trainset, validset and testset')
+# print(len(trainloader))
+# print(len(valid_loader))
+# print(len(testloader))
 
 train_path = './pruning/result/VGG16'
 retrain_path = './pruning/result/VGG16_retrain'
@@ -72,15 +73,16 @@ criterion = nn.CrossEntropyLoss()
 if use_cuda:
     # move param and buffer to GPU
     net.cuda()
-    # parallel use GPU
-    net = torch.nn.DataParallel(net, device_ids=range(torch.cuda.device_count() - 1))
+    if parallel_gpu:
+        # parallel use GPU
+        net = torch.nn.DataParallel(net, device_ids=range(torch.cuda.device_count() - 1))
     # speed up slightly
     cudnn.benchmark = True
 
 if os.path.exists(train_path):
     net.load_state_dict(torch.load(train_path))
 else:
-    helper.train(net, trainloader=trainloader, valid_loader=valid_loader, criterion=criterion,
+    helper.train(testloader, net, trainloader=trainloader, valid_loader=valid_loader, criterion=criterion,
                  optimizer=optimizer, epoch=train_epoch, loss_accept=loss_accept)
     torch.save(net.state_dict(), train_path)
 
@@ -91,26 +93,26 @@ for j in range(retrain_num):
     retrain_mode = 'conv' if j % 2 == 1 else 'fc'
     # We used five iterations of pruning an retraining
     for k in range(5):
-        if use_cuda:
+        if parallel_gpu:
             net.module.prune_layer(prune_mode=retrain_mode)
         else:
             net.prune_layer(prune_mode=retrain_mode)
     print('====================== Retrain', retrain_mode, j, 'Start ==================')
     if retrain_mode == 'fc':
-        if use_cuda:
+        if parallel_gpu:
             net.module.compute_dropout_rate()
         else:
             net.compute_dropout_rate()
-    if use_cuda:
+    if parallel_gpu:
         net.module.fix_layer(net, fix_mode='conv' if retrain_mode == 'fc' else 'fc')
     else:
         net.fix_layer(net, fix_mode='conv' if retrain_mode == 'fc' else 'fc')
     x = filter(lambda p: p.requires_grad, list(net.parameters()))
     optimizer = optim.SGD(filter(lambda p: p.requires_grad, list(net.parameters())), lr=lr / 100, momentum=0.9,
                           weight_decay=1e-5)
-    helper.train(net, trainloader=trainloader, valid_loader=valid_loader, criterion=criterion,
+    helper.train(testloader, net, trainloader=trainloader, valid_loader=valid_loader, criterion=criterion,
                  optimizer=optimizer, epoch=retrain_epoch, loss_accept=loss_accept)
-    helper.test(testloader, net)
+    # helper.test(testloader, net)
     helper.save_sparse_model(net, retrain_path)
-    log.log_file_size(retrain_path, 'M')
+    # log.log_file_size(retrain_path, 'M')
     print('====================== ReTrain End ======================')

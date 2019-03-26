@@ -8,28 +8,17 @@ from torch.nn.modules.module import Module
 
 class MaskModule(Module):
     def prune(self, threshold):
-        weight_dev = self.weight.device
-        weight_mask_dev = self.weight_mask.device
-        bias_dev = self.bias.device
-        bias_mask_dev = self.bias_mask.device
-        weight = self.weight.data.cpu().numpy()
-        weight_mask = self.weight_mask.data.cpu().numpy()
-        bias = self.bias.data.cpu().numpy()
-        bias_mask = self.bias_mask.data.cpu().numpy()
-        new_weight_mask = np.where(abs(weight) < threshold, 0, weight_mask)
-        self.weight.data = torch.from_numpy(weight * new_weight_mask).to(weight_dev)
-        self.weight_mask.data = torch.from_numpy(new_weight_mask).to(weight_mask_dev)
+        new_weight_mask = torch.where(abs(self.weight.data) < threshold,
+                                      torch.zeros_like(self.weight.data).float().cuda(),
+                                      self.weight_mask.float())
+        self.weight.data = self.weight * new_weight_mask.float()
+        self.weight_mask.data = new_weight_mask
         if self.bias is not None:
-            new_bias_mask = np.where(abs(bias) < threshold, 0, bias_mask)
-            self.bias.data = torch.from_numpy(bias * new_bias_mask).to(bias_dev)
-            self.bias_mask.data = torch.from_numpy(new_bias_mask).to(bias_mask_dev)
-
-    def reset_parameters(self):
-        nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
-        if self.bias is not None:
-            fan_in, _ = nn.init._calculate_fan_in_and_fan_out(self.weight)
-            bound = 1 / math.sqrt(fan_in)
-            nn.init.uniform_(self.bias, -bound, bound)
+            new_bias_mask = torch.where(abs(self.bias.data) < threshold,
+                                        torch.zeros_like(self.bias.data).byte().cuda(),
+                                        self.bias_mask)
+            self.bias.data = self.bias * new_bias_mask.float()
+            self.bias_mask.data = new_bias_mask
 
 
 class MaskLinearModule(MaskModule):
@@ -52,6 +41,18 @@ class MaskLinearModule(MaskModule):
             return F.linear(input, weight, self.bias * self.bias_mask.float())
         else:
             return F.linear(input, weight)
+        nn.Linear
+
+    def reset_parameters(self):
+        # stdv = 1. / math.sqrt(self.weight.size(1))
+        # self.weight.data.uniform_(-stdv, stdv)
+        # if self.bias is not None:
+        #     self.bias.data.uniform_(-stdv, stdv)
+        nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
+        if self.bias is not None:
+            fan_in, _ = nn.init._calculate_fan_in_and_fan_out(self.weight)
+            bound = 1 / math.sqrt(fan_in)
+            nn.init.uniform_(self.bias, -bound, bound)
 
 
 class MaskConv2Module(MaskModule):
@@ -77,6 +78,7 @@ class MaskConv2Module(MaskModule):
 
     def forward(self, input):
         weight = self.weight * self.weight_mask.float()
+        nn.Conv2d
         if self.bias is not None:
             bias = self.bias * self.bias_mask.float()
             return F.conv2d(input, weight, bias=bias, stride=self.stride, padding=self.padding,
@@ -84,6 +86,13 @@ class MaskConv2Module(MaskModule):
         else:
             return F.conv2d(input, weight, stride=self.stride, padding=self.padding,
                             dilation=self.dilation, groups=self.groups)
+
+    def reset_parameters(self):
+        nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
+        if self.bias is not None:
+            fan_in, _ = nn.init._calculate_fan_in_and_fan_out(self.weight)
+            bound = 1 / math.sqrt(fan_in)
+            nn.init.uniform_(self.bias, -bound, bound)
 
 
 class PruneModule(Module):
@@ -111,20 +120,9 @@ class PruneModule(Module):
                     s = sensitivity['fc']
                 else:
                     s = sensitivity['conv']
-                threshold = np.std(module.weight.data.cpu().numpy()) * s
+                threshold = module.weight.data.std() * s
                 # print('Pruning layer', name, ' threshold: ', round(threshold, 4))
                 module.prune(threshold)
-
-            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            # 将已修剪的连接的梯度置为零
-            for name, p in self.named_parameters():
-                if name.endswith('mask') or p.grad is None or p.data is None:
-                    continue
-                    # p.data数据可能在gpu里，.cpu()可以将值拷贝一份到cpu
-                tensor = p.data.cpu().numpy()
-                grad_tensor = p.grad.data.cpu().numpy()
-                grad_tensor = np.where(tensor < 1e-6, 0, grad_tensor)
-                p.grad.data = torch.from_numpy(grad_tensor).to(device)
         # print('====== prune end ======')
 
     # fix_mode: fix 'conv' or 'fc'
@@ -143,4 +141,3 @@ class PruneModule(Module):
             else:
                 p.requires_grad = True
         print('===== fix mode end', '======')
-
