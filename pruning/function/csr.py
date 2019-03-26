@@ -1,6 +1,5 @@
 from scipy.sparse import csr_matrix
 import torch
-from collections import deque
 
 
 class WeightCSR(csr_matrix):
@@ -12,9 +11,9 @@ class WeightCSR(csr_matrix):
 
     def tensor_to_csr(self):
         # index diff list
-        diff_list = deque([])
+        diff_list = []
         last_index = -1
-        value_list = deque([])
+        value_list = []
         for i, value in enumerate(self.tensor):
             diff = i - last_index - 1
             if diff >= self.max_index - 1:

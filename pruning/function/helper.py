@@ -3,7 +3,6 @@ import numpy as np
 from pruning.function.csr import WeightCSR
 from torch.autograd import Variable
 import time
-from collections import deque
 
 
 def test(testloader, net):
@@ -72,10 +71,10 @@ def save_sparse_model(net, path):
     #         print(a, b, a / b)
 
     nz_num = []
-    conv_diff_array = deque([])
-    fc_diff_array = deque([])
-    conv_value_array = deque([])
-    fc_value_array = deque([])
+    conv_diff_array = []
+    fc_diff_array = []
+    conv_value_array = []
+    fc_value_array = []
     for key, tensor in net.state_dict().items():
         if key.endswith('mask'):
             continue
