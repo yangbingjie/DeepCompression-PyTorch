@@ -105,7 +105,7 @@ class PruneModule(Module):
             return
         if sensitivity is None:
             sensitivity = {
-                'fc': 0.7,
+                'fc': 0.77,
                 'conv1': 0.3,
                 'conv': 0.5,
             }

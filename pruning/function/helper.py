@@ -1,8 +1,8 @@
 import torch
 import numpy as np
-from pruning.function.csr import WeightCSR
 from torch.autograd import Variable
 import time
+from scipy.sparse import csr_matrix
 
 
 def test(testloader, net):
@@ -62,6 +62,26 @@ def train(testloader, net, trainloader, valid_loader, criterion, optimizer, epoc
                 break
 
 
+def filler_zero(value, index, bits):
+    max_bits = 2 ** bits
+    last_index = -1
+    i = 0
+    while i < len(index):
+        diff = index[i] - last_index
+        if diff > max_bits:
+            filer_num = int(diff / max_bits)
+            for j in range(filer_num):
+                value = np.insert(value, i, 0)
+                index = np.insert(index, i, max_bits - 1)
+            last_index += filer_num * max_bits
+            i += filer_num
+        else:
+            last_index = index[i]
+            index[i] = diff - 1
+            i += 1
+    return value, index
+
+
 def save_sparse_model(net, path):
     # torch.save(net.state_dict(), path)
     # for key, tensor in net.state_dict().items():
@@ -78,13 +98,12 @@ def save_sparse_model(net, path):
     for key, tensor in net.state_dict().items():
         if key.endswith('mask'):
             continue
+        print('=======', key, 'start =========')
         if key.startswith('conv'):
             # 8 bits for conv layer index diff
-
-            print('=======', key, 'start =========')
             start = time.clock()
-            csr_matrix = WeightCSR(tensor, index_bits=8)
-            diff_list, value_list = csr_matrix.tensor_to_csr()
+            mat = csr_matrix(tensor.cpu().reshape(-1))
+            value_list, diff_list = filler_zero(mat.data, mat.indices, 8)
             elapsed = (time.clock() - start)
             print('csr', round(elapsed, 5))
 
@@ -93,14 +112,12 @@ def save_sparse_model(net, path):
             conv_value_array.extend(value_list)
             elapsed = (time.clock() - start)
             print('extend', round(elapsed, 5))
-            print('=======', key, len(diff_list), 'end =======')
 
         else:
             # 4 bits for fc layer index diff
-            print('=======', key, 'start =========')
             start = time.clock()
-            csr_matrix = WeightCSR(tensor, index_bits=4)
-            diff_list, value_list = csr_matrix.tensor_to_csr()
+            mat = csr_matrix(tensor.cpu().reshape(-1))
+            value_list, diff_list = filler_zero(mat.data, mat.indices, 4)
             elapsed = (time.clock() - start)
             print('csr', round(elapsed, 5))
 
@@ -109,15 +126,27 @@ def save_sparse_model(net, path):
             fc_value_array.extend(value_list)
             elapsed = (time.clock() - start)
             print('extend', round(elapsed, 5))
-            print('=======', key, len(diff_list), 'end =======')
 
-        nz_num.append(csr_matrix.nz_num)
+        print('=======', key, len(diff_list), 'end =======')
+        nz_num.append(len(diff_list))
+
+    # print(nz_num)
+    # print(len(conv_diff_array), conv_diff_array[0:20])
+    # print(len(fc_diff_array), fc_diff_array[0:20])
+    # print(len(conv_value_array), conv_value_array[0:20])
+    # print(len(fc_value_array), fc_value_array[0:20])
+
+    # [368, 20, 14706, 28, 195060, 223, 1986, 5]
+    # 15122 [1, 0, 0, 3, 1, 0, 0, 0, 0, 1, 1, 2, 0, 4, 0, 1, 0, 0, 0, 0]
+    # 197274 [0, 3, 1, 0, 1, 0, 1, 0, 0, 0, 4, 2, 0, 0, 0, 1, 0, 4, 0, 2]
+    # 15122 [-0.058692038, -0.20448187, -0.06760995, 0.07252452, 0.08391143, 0.25181824, 0.3066377, 0.15797374, 0.08447786, -0.28649807, 0.16029164, -0.14801468, -0.23152983, 0.25150803, 0.10125634, -0.061441414, 0.24004352, -0.21027368, -0.5110624, -0.3133713]
+    # 197274 [-0.021946901, 0.020857502, 0.020772176, 0.028257154, 0.031773686, 0.036305174, -0.027708048, -0.030588016, 0.034516267, 0.024990581, -0.02094119, 0.019869655, 0.023522332, -0.024851361, -0.022399157, -0.026098453, -0.02566959, 0.03573141, -0.029567914, -0.021915225]
 
     length = len(fc_diff_array)
     if length % 2 != 0:
         fc_diff_array.append(0)
     fc_merge_diff = []
-    for i in range(int(len(fc_diff_array) / 2) - 1):
+    for i in range(int(len(fc_diff_array) / 2)):
         fc_merge_diff.append((fc_diff_array[2 * i] << 4) + fc_diff_array[2 * i + 1])
     nz_num = np.asarray(nz_num, dtype=np.uint32)
     conv_diff_array = np.asarray(conv_diff_array, dtype=np.uint8)
@@ -129,8 +158,20 @@ def save_sparse_model(net, path):
     nz_num.dtype = np.uint8
     conv_value_array.dtype = np.uint8
     fc_value_array.dtype = np.uint8
-    sparse_obj = np.concatenate((nz_num, conv_diff_array, fc_diff, conv_value_array, fc_value_array))
 
+    # print(nz_num)
+    # print(conv_diff_array.size, conv_diff_array[0:20])
+    # print(fc_diff.size, fc_diff[0:20])
+    # print(conv_value_array.size, conv_value_array[0:20])
+    # print(fc_value_array.size, fc_value_array[0:20])
+
+    # [112   1   0   0  20   0   0   0 114  57   0   0  28   0   0   0 244 249 2   0 223   0   0   0 194   7   0   0   5   0   0   0]
+    # 15122 [1 0 0 3 1 0 0 0 0 1 1 2 0 4 0 1 0 0 0 0]
+    # 98637 [ 3 16 16 16  0 66  0  1  4  2 20 34  0 66  0  0 67  0  2  0]
+    # 60488 [ 16 103 112 189 178  99  81 190  22 119 138 189 188 135 148  61 193 217 171  61]
+    # 789096 [253 201 179 188  90 221 170  60 105  42 170  60 140 123 231  60  32  37 2  61]
+
+    sparse_obj = np.concatenate((nz_num, conv_diff_array, fc_diff, conv_value_array, fc_value_array))
     sparse_obj.tofile(path)
 
 
@@ -147,33 +188,39 @@ def load_sparse_model(net, path):
             fc_layer_num += 1
     nz_num = np.fromfile(fin, dtype=np.uint32, count=conv_layer_num + fc_layer_num)
     conv_diff_num = sum(nz_num[:conv_layer_num])
-    fc_diff_num = int(sum(nz_num[conv_layer_num:]) / 2)
+    fc_diff_num = int((sum(nz_num[conv_layer_num:]) + 1) / 2)
     conv_diff = np.fromfile(fin, dtype=np.uint8, count=conv_diff_num)
     fc_merge_diff = np.fromfile(fin, dtype=np.uint8, count=fc_diff_num)
-    value_array = np.fromfile(fin, dtype=np.float32, count=sum(nz_num))
+    conv_value_array = np.fromfile(fin, dtype=np.float32, count=sum(nz_num[:conv_layer_num]))
+    fc_value_array = np.fromfile(fin, dtype=np.float32, count=sum(nz_num[conv_layer_num:]))
 
-    print(fc_merge_diff[0:10])
+    # print(fc_merge_diff.size, fc_merge_diff[0:10])
+    # 98637 [ 3 16 16 16  0 66  0  1  4  2]
 
     # Split 8 bits index to 4 bits index
     fc_diff = []
+    bits = 4
+    max_bits = 2 ** bits
     for i in range(len(fc_merge_diff)):
-        fc_diff.append(fc_merge_diff[i])  # first 4 bits
-        fc_diff.append(fc_merge_diff[i])  # last 4 bits
+        fc_diff.append(int(fc_merge_diff[i] / max_bits))  # first 4 bits
+        fc_diff.append(fc_merge_diff[i] % max_bits)  # last 4 bits
+    #
+    # print(nz_num)
+    # print(conv_diff.size, conv_diff[0:20])
+    # print(len(fc_diff), fc_diff[0:20])
+    # print(conv_value_array.size, conv_value_array[0:20])
+    # print(fc_value_array.size, fc_value_array[0:20])
 
-    print(len(nz_num), nz_num)
-    # 8 [  414    16 17721    30 58442    80   928     2]
+    # [   368     20  14706     28 195060    223   1986      5]
+    # 15122 [1 0 0 3 1 0 0 0 0 1 1 2 0 4 0 1 0 0 0 0]
+    # 197274 [0, 3, 1, 0, 1, 0, 1, 0, 0, 0, 4, 2, 0, 0, 0, 1, 0, 4, 0, 2]
+    # 15122 [-0.05869204 -0.20448187 -0.06760995  0.07252452  0.08391143  0.25181824
+    #   0.3066377   0.15797374  0.08447786 -0.28649807  0.16029164 -0.14801468
+    #  -0.23152983  0.25150803  0.10125634 -0.06144141  0.24004352 -0.21027368
+    #  -0.5110624  -0.3133713 ]
+    # 197274 [-0.0219469   0.0208575   0.02077218  0.02825715  0.03177369  0.03630517
+    #  -0.02770805 -0.03058802  0.03451627  0.02499058 -0.02094119  0.01986966
+    #   0.02352233 -0.02485136 -0.02239916 -0.02609845 -0.02566959  0.03573141
+    #  -0.02956791 -0.02191523]
 
-    print(conv_diff.size, conv_diff[0:20])
-    # 18181 [0 0 0 0 0 0 0 0 0 1 0 1 1 1 0 0 0 0 0 1]
-
-    print(fc_merge_diff.size, fc_diff[0:20])
-    # 29726 [30, 30, 152, 152, 52, 52, 40, 40, 15, 15, 32, 32, 33, 33, 15, 15, 74, 74, 23, 23]
-
-    print(value_array.size, value_array[0:20])
-    # 77632 [-5.8470100e-31 -5.8545675e-31 -5.4793001e+19 -3.5765236e-35
-    #  -7.3473500e+27 -2.2856749e-33 -2.6150384e+13 -2.1931591e+20
-    #  -6.8449156e+18 -2.4266166e+04 -2.0393425e+11  4.6884696e-30
-    #  -1.8285324e-32 -9.8099042e-24  1.1702544e-30  1.6096663e-19
-    #  -7.4775139e-29 -7.4215263e-01 -5.6639610e-06 -4.3209863e-11]
-
-    return conv_layer_num, nz_num, conv_diff, fc_diff, value_array
+    return conv_layer_num, nz_num, conv_diff, fc_diff, conv_value_array, fc_value_array

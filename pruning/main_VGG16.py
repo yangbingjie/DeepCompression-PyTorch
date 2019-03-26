@@ -10,20 +10,56 @@ import pruning.function.helper as helper
 import util.log as log
 import torch.optim as optim
 from torch.utils.data.sampler import SubsetRandomSampler
+from scipy.sparse import csr_matrix
+
+
+# def filer_zero(value, index, bits):
+#     max_bits = 2 ** bits
+#     last_index = -1
+#     i = 0
+#     while i < len(index):
+#         diff = index[i] - last_index
+#         if diff > max_bits:
+#             filer_num = int(diff / max_bits)
+#             for j in range(filer_num):
+#                 value = np.insert(value, i, 0)
+#                 index = np.insert(index, i, max_bits - 1)
+#             last_index += filer_num * max_bits
+#             i += filer_num
+#         else:
+#             last_index = index[i]
+#             index[i] = diff - 1
+#             i += 1
+#     return value, index
+#
+#
+# # test csr
+# a = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3.4, 0, 0,
+#               0.9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.7])
+# tensor = torch.from_numpy(a)
+# mat = csr_matrix(tensor)
+# print(mat.data)
+# print(mat.indices)
+# data, indices = filer_zero(mat.data, mat.indices, 3)
+# print(data)
+# print(indices)
+
 
 # os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 parallel_gpu = False
 use_cuda = torch.cuda.is_available()
 train_batch_size = 128
-retrain_num = 1
-train_epoch = 0
-retrain_epoch = 1
+retrain_num = 8
+train_epoch = 32
+retrain_epoch = 4
 test_batch_size = 128
 loss_accept = 1e-2
 lr = 1e-2
-
 valid_size = 0.4
+train_path = './pruning/result/VGG16'
+retrain_path = './pruning/result/VGG16_retrain'
 data_dir = './data'
+
 transform = transforms.Compose([transforms.ToTensor(),
                                 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
@@ -61,8 +97,6 @@ testloader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
 # print(len(valid_loader))
 # print(len(testloader))
 
-train_path = './pruning/result/VGG16'
-retrain_path = './pruning/result/VGG16_retrain'
 
 net = VGG16(num_classes=10)
 optimizer = optim.SGD(list(net.cuda().parameters()), lr=lr, momentum=0.9, weight_decay=1e-5)
@@ -113,6 +147,7 @@ for j in range(retrain_num):
     helper.train(testloader, net, trainloader=trainloader, valid_loader=valid_loader, criterion=criterion,
                  optimizer=optimizer, epoch=retrain_epoch, loss_accept=loss_accept)
     # helper.test(testloader, net)
-    helper.save_sparse_model(net, retrain_path)
-    # log.log_file_size(retrain_path, 'M')
     print('====================== ReTrain End ======================')
+
+helper.save_sparse_model(net, retrain_path)
+log.log_file_size(retrain_path, 'M')

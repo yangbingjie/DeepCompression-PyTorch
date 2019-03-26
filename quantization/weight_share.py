@@ -5,7 +5,8 @@ from quantization.codebook import Codebook
 
 
 def share_weight(net, before_path, conv_bits, fc_bits):
-    conv_layer_length, nz_num, conv_diff, fc_diff, value_array = helper.load_sparse_model(net, before_path)
+    conv_layer_length, nz_num, conv_diff, fc_diff, conv_value_array, fc_value_array \
+        = helper.load_sparse_model(net, before_path)
     index = 0
     codebook = Codebook(conv_bits, fc_bits)
     bits = conv_bits
@@ -13,7 +14,9 @@ def share_weight(net, before_path, conv_bits, fc_bits):
         layer_type = 'conv' if i < conv_layer_length else 'fc'
         if layer_type == 'fc':
             bits = fc_bits
-        layer_weight = value_array[index:index + nz_num[i * 2]]
+            layer_weight = fc_value_array[index:index + nz_num[i * 2]]
+        else:
+            layer_weight = conv_value_array[index:index + nz_num[i * 2]]
         print(np.any(np.isnan(layer_weight)))
         print(np.all(np.isfinite(layer_weight)))
         print(layer_weight.dtype)
