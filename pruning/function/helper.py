@@ -3,6 +3,7 @@ import numpy as np
 from torch.autograd import Variable
 import time
 from scipy.sparse import csr_matrix
+import torch.optim.lr_scheduler as lr_scheduler
 
 
 def test(testloader, net):
@@ -19,13 +20,31 @@ def test(testloader, net):
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
 
-    print('Accuracy of the network on the test images: %d %%' % (100 * correct / total))
+    accuracy = (100 * correct / total)
+    print('Accuracy of the network on the test images: %d %%' % accuracy)
+    return accuracy
 
 
-def train(testloader, net, trainloader, valid_loader, criterion, optimizer, epoch=1, loss_accept=1e-3):
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1,
-                                                           patience=1, verbose=True)
+#
+# def adjust_learning_rate(optimizer, epoch_num):
+#     if epoch_num < 81:
+#         lr = 0.01
+#     elif epoch_num < 121:
+#         lr = 0.001
+#     else:
+#         lr = 0.0001
+#     for param_group in optimizer.param_groups:
+#         param_group['lr'] = lr
+
+
+def train(testloader, net, trainloader, valid_loader, criterion, optimizer, train_path, save_step=5, epoch=1,
+          accuracy_accept=99, epoch_step=25):
+    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1,
+    #                                                        patience=1, verbose=True)
+    scheduler = lr_scheduler.StepLR(optimizer, step_size=epoch_step, gamma=0.5)
+
     for epoch in range(epoch):  # loop over the dataset multiple times
+        # adjust_learning_rate(optimizer, epoch)
         train_loss = []
         valid_loss = []
         net.train()
@@ -56,9 +75,11 @@ def train(testloader, net, trainloader, valid_loader, criterion, optimizer, epoc
             mean_valid_loss = np.mean(valid_loss)
             print("Epoch:", epoch, "Training Loss: %5f" % mean_train_loss,
                   "Valid Loss: %5f" % mean_valid_loss)
-            test(testloader, net)
-            scheduler.step(mean_valid_loss)
-            if mean_valid_loss < loss_accept:
+            accuracy = test(testloader, net)
+            scheduler.step()
+            if epoch % save_step == (save_step - 1):
+                torch.save(net.state_dict(), train_path + '_%d' % epoch)
+            if accuracy > accuracy_accept:
                 break
 
 
