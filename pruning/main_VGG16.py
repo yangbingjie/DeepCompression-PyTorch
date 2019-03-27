@@ -114,10 +114,10 @@ if use_cuda:
     # speed up slightly
     cudnn.benchmark = True
 
-if os.path.exists(train_path):
-    net.load_state_dict(torch.load(train_path))
-else:
-    helper.train(testloader, net, trainloader=trainloader, valid_loader=valid_loader, criterion=criterion,
+# if os.path.exists(train_path):
+#     net.load_state_dict(torch.load(train_path))
+# else:
+helper.train(testloader, net, trainloader=trainloader, valid_loader=valid_loader, criterion=criterion,
                  optimizer=optimizer, epoch=train_epoch, accuracy_accept=accuracy_accept, train_path=train_path)
 
 # helper.test(testloader, net)

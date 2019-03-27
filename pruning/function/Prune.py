@@ -78,7 +78,6 @@ class MaskConv2Module(MaskModule):
 
     def forward(self, input):
         weight = self.weight * self.weight_mask.float()
-        nn.Conv2d
         if self.bias is not None:
             bias = self.bias * self.bias_mask.float()
             return F.conv2d(input, weight, bias=bias, stride=self.stride, padding=self.padding,
@@ -134,7 +133,7 @@ class PruneModule(Module):
             return
         print('===== fix mode is', fix_mode, '=====')
         for name, p in net.named_parameters():
-            if name.endswith('mask'):
+            if name.endswith('mask') or name.starswith('bn'):
                 continue
             elif name.startswith(fix_mode):
                 p.requires_grad = False

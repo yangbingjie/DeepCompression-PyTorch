@@ -77,7 +77,7 @@ def train(testloader, net, trainloader, valid_loader, criterion, optimizer, trai
                   "Valid Loss: %5f" % mean_valid_loss)
             accuracy = test(testloader, net)
             scheduler.step()
-            if epoch % save_step == (save_step - 1):
+            if epoch % save_step == 0 and epoch != 0:
                 torch.save(net.state_dict(), train_path + '_%d' % epoch)
             if accuracy > accuracy_accept:
                 break
