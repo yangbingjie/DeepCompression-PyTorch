@@ -38,7 +38,7 @@ class VGG16(prune.PruneModule):
         self.fc1 = prune.MaskLinearModule(512 * 7 * 7, 4096)
         self.fc2 = prune.MaskLinearModule(4096, 4096)
         self.fc3 = prune.MaskLinearModule(4096, num_classes)
-        self.drop_rate = [0.3, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.5, 0.5]
+        self.drop_rate = [0.3, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 0.5, 0.5, 0.5]
         if init_weights:
             self._initialize_weights()
 
@@ -97,12 +97,13 @@ class VGG16(prune.PruneModule):
         x = F.max_pool2d(x, kernel_size=2, stride=2)
         x = F.adaptive_avg_pool2d(x, (7, 7))
         x = x.view(x.size(0), -1)
+        x = nn.functional.dropout(x, p=self.drop_rate[8], training=True, inplace=False)
         x = self.fc1(x)
         x = F.relu(x)
-        x = nn.functional.dropout(x, p=self.drop_rate[8], training=True, inplace=False)
+        x = nn.functional.dropout(x, p=self.drop_rate[9], training=True, inplace=False)
         x = self.fc2(x)
         x = F.relu(x)
-        x = nn.functional.dropout(x, p=self.drop_rate[9], training=True, inplace=False)
+        x = nn.functional.dropout(x, p=self.drop_rate[10], training=True, inplace=False)
         x = self.fc3(x)
         x = F.log_softmax(x, dim=1)
         return x
@@ -110,21 +111,20 @@ class VGG16(prune.PruneModule):
     def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, prune.MaskConv2Module):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
+                n = m.kernel_size * m.kernel_size * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
             elif isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
             elif isinstance(m, nn.Linear):
                 nn.init.normal_(m.weight, 0, 0.01)
                 nn.init.constant_(m.bias, 0)
 
     def compute_dropout_rate(self):
         last_layer_array = [self.conv1, self.conv3, self.conv5, self.conv6, self.conv8, self.conv9, self.conv11,
-                            self.conv12, self.fc1, self.fc2]
+                            self.conv12, self.conv13, self.fc1, self.fc2]
         next_layer_array = [self.conv2, self.conv4, self.conv6, self.conv7, self.conv9, self.conv10, self.conv12,
-                            self.conv13, self.fc2, self.fc3]
+                            self.conv13, self.fc1, self.fc2, self.fc3]
         for index in range(len(self.drop_rate)):
             # Last Layer
             last_layer = last_layer_array[index]

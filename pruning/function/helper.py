@@ -37,16 +37,17 @@ def test(testloader, net):
 #         param_group['lr'] = lr
 
 
-def train(testloader, net, trainloader, valid_loader, criterion, optimizer, train_path, save_step=5, epoch=1,
+def train(testloader, net, trainloader, criterion, optimizer, train_path, epoch=1,
           accuracy_accept=99, epoch_step=25):
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1,
     #                                                        patience=1, verbose=True)
     scheduler = lr_scheduler.StepLR(optimizer, step_size=epoch_step, gamma=0.5)
+    max_accuracy = 0
 
     for epoch in range(epoch):  # loop over the dataset multiple times
         # adjust_learning_rate(optimizer, epoch)
         train_loss = []
-        valid_loss = []
+        # valid_loss = []
         net.train()
         for inputs, labels in trainloader:
             # get the inputs
@@ -62,23 +63,24 @@ def train(testloader, net, trainloader, valid_loader, criterion, optimizer, trai
             optimizer.step()  # update weight
 
             train_loss.append(loss.item())
-        net.eval()
+        # net.eval()
         with torch.no_grad():
-            for inputs, labels in valid_loader:
-                inputs = inputs.cuda()
-                labels = labels.cuda()
-                output = net(inputs)
-                loss = criterion(output, labels)
-                valid_loss.append(loss.item())
+            # for inputs, labels in valid_loader:
+            #     inputs = inputs.cuda()
+            #     labels = labels.cuda()
+            #     output = net(inputs)
+            #     loss = criterion(output, labels)
+            #     valid_loss.append(loss.item())
 
             mean_train_loss = np.mean(train_loss)
-            mean_valid_loss = np.mean(valid_loss)
-            print("Epoch:", epoch, "Training Loss: %5f" % mean_train_loss,
-                  "Valid Loss: %5f" % mean_valid_loss)
+            # mean_valid_loss = np.mean(valid_loss)
+            print("Epoch:", epoch, "Training Loss: %5f" % mean_train_loss)
+                  # "Valid Loss: %5f" % mean_valid_loss
             accuracy = test(testloader, net)
             scheduler.step()
-            if epoch % save_step == 0 and epoch != 0:
-                torch.save(net.state_dict(), train_path + '_%d' % epoch)
+            if accuracy > max_accuracy:
+                torch.save(net.state_dict(), train_path)
+                max_accuracy = accuracy
             if accuracy > accuracy_accept:
                 break
 
