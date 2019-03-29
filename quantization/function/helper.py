@@ -3,7 +3,7 @@ import torch
 import numpy as np
 
 
-def sparse_to_init(net, conv_layer_length, sparse_conv_diff, sparse_fc_diff, conv_bits, fc_bits, codebook):
+def sparse_to_init(net, conv_layer_length, nz_num, sparse_conv_diff, sparse_fc_diff, codebook):
     state_dict = net.state_dict()
     conv_layer_index = 0
     fc_layer_index = 0
@@ -14,22 +14,19 @@ def sparse_to_init(net, conv_layer_length, sparse_conv_diff, sparse_fc_diff, con
         value = value.view(-1)
         # print(value.shape)
         value.zero_()
-        layer_num = torch.numel(value)
         if i < conv_layer_length:
-            layer_diff = sparse_conv_diff[conv_layer_index:conv_layer_index + layer_num]
-            conv_layer_index += layer_num
+            layer_diff = sparse_conv_diff[conv_layer_index:conv_layer_index + nz_num[i]]
+            conv_layer_index += nz_num[i]
         else:
-            layer_diff = sparse_fc_diff[fc_layer_index:fc_layer_index + layer_num]
-            fc_layer_index += layer_num
+            layer_diff = sparse_fc_diff[fc_layer_index:fc_layer_index + nz_num[i]]
+            fc_layer_index += nz_num[i]
         dense_index = 0
         sparse_index = 0
-        while sparse_index < layer_num:
+        index = int(i / 2)
+        while sparse_index < len(layer_diff):
             dense_index += layer_diff[sparse_index]
-            # print(dense_index, sparse_index)
-            value[0] = 2
-            print(value[0].shape)
-            print(codebook.codebook_value[i][codebook.codebook_index[i][sparse_index]])
-            value[dense_index] = torch.from_numpy(codebook.codebook_value[i][codebook.codebook_index[i][sparse_index]])
+            value[dense_index] = float(codebook.codebook_value[index][codebook.codebook_index[index][sparse_index]])
+            # print(value[dense_index])
             sparse_index += 1
             dense_index += 1
         value.reshape(shape)

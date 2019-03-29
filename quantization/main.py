@@ -55,7 +55,7 @@ testloader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
                                          **kwargs)
 
 net = LeNet5()
-helper.sparse_to_init(net, conv_layer_length, conv_diff, fc_diff, conv_bits, fc_bits, codebook)
+helper.sparse_to_init(net, conv_layer_length, nz_num, conv_diff, fc_diff, codebook)
 
 if use_cuda:
     # move param and buffer to GPU

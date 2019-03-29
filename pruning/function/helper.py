@@ -38,7 +38,7 @@ def test(testloader, net):
 
 
 def train(testloader, net, trainloader, criterion, optimizer, train_path, save_sparse=False, epoch=1, use_cuda=True,
-          accuracy_accept=99, epoch_step=25):
+          accuracy_accept=99, epoch_step=25, auto_save=True):
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1,
     #                                                        patience=1, verbose=True)
     scheduler = lr_scheduler.StepLR(optimizer, step_size=epoch_step, gamma=0.5)
@@ -79,7 +79,7 @@ def train(testloader, net, trainloader, criterion, optimizer, train_path, save_s
             # "Valid Loss: %5f" % mean_valid_loss
             accuracy = test(testloader, net)
             scheduler.step()
-            if accuracy > max_accuracy:
+            if auto_save and accuracy > max_accuracy:
                 if save_sparse:
                     save_sparse_model(net, train_path)
                 else:
