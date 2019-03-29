@@ -3,12 +3,36 @@ import torch
 import numpy as np
 
 
-def sparse_to_init(net, conv_layer_length, codebook, nz_num, conv_diff, fc_diff):
+def sparse_to_init(net, conv_layer_length, sparse_conv_diff, sparse_fc_diff, conv_bits, fc_bits, codebook):
     state_dict = net.state_dict()
-    layer_index = 0
-    for (key, value) in state_dict.items():
-        if layer_index < conv_layer_length:
-            state_dict[key] = ''
+    conv_layer_index = 0
+    fc_layer_index = 0
+    for i, (key, value) in enumerate(state_dict.items()):
+        # print(key, value.shape, codebook.conv_codebook_index, codebook.conv_codebook_value)
+        shape = value.shape
+        # print(value.shape)
+        value = value.view(-1)
+        # print(value.shape)
+        value.zero_()
+        layer_num = torch.numel(value)
+        if i < conv_layer_length:
+            layer_diff = sparse_conv_diff[conv_layer_index:conv_layer_index + layer_num]
+            conv_layer_index += layer_num
+        else:
+            layer_diff = sparse_fc_diff[fc_layer_index:fc_layer_index + layer_num]
+            fc_layer_index += layer_num
+        dense_index = 0
+        sparse_index = 0
+        while sparse_index < layer_num:
+            dense_index += layer_diff[sparse_index]
+            # print(dense_index, sparse_index)
+            value[0] = 2
+            print(value[0].shape)
+            print(codebook.codebook_value[i][codebook.codebook_index[i][sparse_index]])
+            value[dense_index] = torch.from_numpy(codebook.codebook_value[i][codebook.codebook_index[i][sparse_index]])
+            sparse_index += 1
+            dense_index += 1
+        value.reshape(shape)
 
 
 def test(testloader, net):

@@ -2,9 +2,9 @@ import torch.nn.functional as F
 import pruning.function.Prune as prune
 
 
-class LeNet5(prune.PruneModule):
+class PruneLeNet5(prune.PruneModule):
     def __init__(self):
-        super(LeNet5, self).__init__()
+        super(PruneLeNet5, self).__init__()
         self.conv1 = prune.MaskConv2Module(1, 20, 5, 1)
         self.conv2 = prune.MaskConv2Module(20, 50, 5, 1)
         self.fc1 = prune.MaskLinearModule(4 * 4 * 50, 500)

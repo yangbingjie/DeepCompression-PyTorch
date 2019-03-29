@@ -12,8 +12,9 @@ import pruning.function.helper as helper
 import util.log as log
 import torch.optim as optim
 from torch.utils.data.sampler import SubsetRandomSampler
-from scipy.sparse import csr_matrix
 
+# from scipy.sparse import csr_matrix
+#
 # def filer_zero(value, index, bits):
 #     max_bits = 2 ** bits
 #     last_index = -1
@@ -50,7 +51,7 @@ from scipy.sparse import csr_matrix
 parallel_gpu = False
 use_cuda = torch.cuda.is_available()
 train_batch_size = 128
-train_epoch = 256
+train_epoch = 200
 retrain_epoch = 8
 retrain_num = 16
 test_batch_size = 128
@@ -64,6 +65,11 @@ train_path_name = 'VGG16'
 train_path = train_path_root + train_path_name
 retrain_path = './pruning/result/VGG16_retrain'
 data_dir = './data'
+sensitivity = {
+    'fc': 0.9,
+    'conv1': 0.5,
+    'conv': 0.7,
+}
 
 train_transform = transforms.Compose([transforms.RandomHorizontalFlip(),
                                       transforms.ToTensor(),
@@ -72,7 +78,7 @@ test_transform = transforms.Compose([transforms.RandomHorizontalFlip(),
                                      transforms.ToTensor(),
                                      transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
-kwargs = {'num_workers': 16, 'pin_memory': True} if use_cuda else {}
+kwargs = {'num_workers': 32, 'pin_memory': True} if use_cuda else {}
 
 trainset = torchvision.datasets.CIFAR10(root=data_dir, train=True,
                                         download=True, transform=train_transform)
@@ -125,40 +131,37 @@ if use_cuda:
 if not os.path.exists(train_path_root):
     os.mkdir(train_path_root)
 
-# if os.path.exists(train_path):
-#     net.load_state_dict(torch.load(train_path))
-# else:
-helper.train(testloader, net, trainloader=trainloader, criterion=criterion,
-             optimizer=optimizer, epoch=train_epoch, accuracy_accept=accuracy_accept, train_path=train_path)
+if os.path.exists(train_path):
+    net.load_state_dict(torch.load(train_path))
+else:
+    helper.train(testloader, net, trainloader=trainloader, criterion=criterion,
+                 optimizer=optimizer, epoch=train_epoch, accuracy_accept=accuracy_accept, train_path=train_path)
 
-# helper.test(testloader, net)
-# log.log_file_size(train_path, 'M')
+helper.test(testloader, net)
+log.log_file_size(train_path, 'M')
 
-# for j in range(retrain_num):
-#     retrain_mode = 'conv' if j % 2 == 1 else 'fc'
-#     # We used five iterations of pruning an retraining
-#     for k in range(5):
-#         if parallel_gpu:
-#             net.module.prune_layer(prune_mode=retrain_mode)
-#         else:
-#             net.prune_layer(prune_mode=retrain_mode)
-#     print('====================== Retrain', retrain_mode, j, 'Start ==================')
-#     if retrain_mode == 'fc':
-#         if parallel_gpu:
-#             net.module.compute_dropout_rate()
-#         else:
-#             net.compute_dropout_rate()
-#     if parallel_gpu:
-#         net.module.fix_layer(net, fix_mode='conv' if retrain_mode == 'fc' else 'fc')
-#     else:
-#         net.fix_layer(net, fix_mode='conv' if retrain_mode == 'fc' else 'fc')
-#     x = filter(lambda p: p.requires_grad, list(net.parameters()))
-#     optimizer = optim.SGD(filter(lambda p: p.requires_grad, list(net.parameters())), lr=lr / 100, momentum=momentum,
-#                           weight_decay=learning_rate_decay)
-#     helper.train(testloader, net, trainloader=trainloader, criterion=criterion,, auto_sava=False,
-#                  optimizer=optimizer, epoch=retrain_epoch, accuracy_accept=accuracy_accept,train_path=retrain_path)
-#     # helper.test(testloader, net)
-#     print('====================== ReTrain End ======================')
-#
-#     helper.save_sparse_model(net, retrain_path)
-#     log.log_file_size(retrain_path, 'M')
+for j in range(retrain_num):
+    retrain_mode = 'conv' if j % 2 == 1 else 'fc'
+    # We used five iterations of pruning an retraining
+    for k in range(5):
+        if parallel_gpu:
+            net.module.prune_layer(prune_mode=retrain_mode)
+        else:
+            net.prune_layer(sensitivity=sensitivity, prune_mode=retrain_mode)
+    print('====================== Retrain', retrain_mode, j, 'Start ==================')
+    if retrain_mode == 'fc':
+        if parallel_gpu:
+            net.module.compute_dropout_rate()
+        else:
+            net.compute_dropout_rate()
+    if parallel_gpu:
+        net.module.fix_layer(net, fix_mode='conv' if retrain_mode == 'fc' else 'fc')
+    else:
+        net.fix_layer(net, fix_mode='conv' if retrain_mode == 'fc' else 'fc')
+    x = filter(lambda p: p.requires_grad, list(net.parameters()))
+    optimizer = optim.SGD(filter(lambda p: p.requires_grad, list(net.parameters())), lr=lr / 100, momentum=momentum,
+                          weight_decay=learning_rate_decay)
+    helper.train(testloader, net, trainloader=trainloader, criterion=criterion, save_sparse=True,
+                 optimizer=optimizer, epoch=retrain_epoch, accuracy_accept=accuracy_accept, train_path=retrain_path)
+    print('====================== ReTrain End ======================')
+    log.log_file_size(retrain_path, 'M')

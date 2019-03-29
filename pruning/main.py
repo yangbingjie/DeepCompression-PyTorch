@@ -4,7 +4,7 @@ import torchvision
 import numpy as np
 import torch.nn as nn
 import torchvision.transforms as transforms
-from pruning.net.LeNet5 import LeNet5
+from pruning.net.PruneLeNet5 import PruneLeNet5
 import pruning.function.helper as helper
 import util.log as log
 import torch.backends.cudnn as cudnn
@@ -29,6 +29,11 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 # device_id = 1
 parallel_gpu = False
 use_cuda = torch.cuda.is_available()
+sensitivity = {
+    'conv1': 0.5,
+    'conv': 0.7,
+    'fc': 0.9
+}
 train_batch_size = 16
 test_batch_size = 16
 lr = 1e-2
@@ -79,7 +84,7 @@ trainloader = torch.utils.data.DataLoader(trainset, batch_size=train_batch_size,
 testloader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
                                          **kwargs)
 
-net = LeNet5()
+net = PruneLeNet5()
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=lr, momentum=0.9, weight_decay=1e-5)
 
@@ -105,11 +110,6 @@ helper.test(testloader, net)
 
 for j in range(retrain_num):
     retrain_mode = 'conv' if j % 2 == 0 else 'fc'
-    sensitivity = {
-        'conv1': 0.4,
-        'conv': 0.6,
-        'fc': 0.85
-    }
     net.prune_layer(prune_mode=retrain_mode, sensitivity=sensitivity)
     print('====================== Retrain', retrain_mode, j, 'Start ==================')
     # net.fix_layer(net, fix_mode='conv' if retrain_mode == 'fc' else 'fc')
