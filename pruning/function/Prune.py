@@ -133,7 +133,7 @@ class PruneModule(Module):
             return
         print('===== fix mode is', fix_mode, '=====')
         for name, p in net.named_parameters():
-            if name.endswith('mask') or name.starswith('bn'):
+            if name.endswith('mask') or name.startswith('bn'):
                 continue
             elif name.startswith(fix_mode):
                 p.requires_grad = False

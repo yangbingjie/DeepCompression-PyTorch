@@ -38,4 +38,4 @@ def share_weight(net, before_path, conv_bits, fc_bits):
 
         codebook.add_layer_codebook(layer_type, codebook_index, codebook_value, kmeans)
 
-        return codebook, nz_num, conv_diff, fc_diff
+        return conv_layer_length, codebook, nz_num, conv_diff, fc_diff

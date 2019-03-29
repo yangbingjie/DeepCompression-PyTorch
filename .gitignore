@@ -9,10 +9,6 @@ __pycache__/
 pruning/result/
 quantization/result/
 data/
-# data
-!/pruning/result/.gitkeep 
-!/data/.gitkeep
-!/quantization/result/.gitkeep
 
 
 # Distribution / packaging

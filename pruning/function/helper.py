@@ -37,7 +37,7 @@ def test(testloader, net):
 #         param_group['lr'] = lr
 
 
-def train(testloader, net, trainloader, criterion, optimizer, train_path, epoch=1,
+def train(testloader, net, trainloader, criterion, optimizer, train_path, save_sparse=False, epoch=1, use_cuda=True,
           accuracy_accept=99, epoch_step=25):
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1,
     #                                                        patience=1, verbose=True)
@@ -51,8 +51,9 @@ def train(testloader, net, trainloader, criterion, optimizer, train_path, epoch=
         net.train()
         for inputs, labels in trainloader:
             # get the inputs
-            inputs = inputs.cuda()
-            labels = labels.cuda()
+            if use_cuda:
+                inputs = inputs.cuda()
+                labels = labels.cuda()
 
             # zero the parameter gradients
             optimizer.zero_grad()
@@ -75,13 +76,16 @@ def train(testloader, net, trainloader, criterion, optimizer, train_path, epoch=
             mean_train_loss = np.mean(train_loss)
             # mean_valid_loss = np.mean(valid_loss)
             print("Epoch:", epoch, "Training Loss: %5f" % mean_train_loss)
-                  # "Valid Loss: %5f" % mean_valid_loss
+            # "Valid Loss: %5f" % mean_valid_loss
             accuracy = test(testloader, net)
             scheduler.step()
             if accuracy > max_accuracy:
-                torch.save(net.state_dict(), train_path)
+                if save_sparse:
+                    save_sparse_model(net, train_path)
+                else:
+                    torch.save(net.state_dict(), train_path)
                 max_accuracy = accuracy
-            if accuracy > accuracy_accept:
+            if accuracy >= accuracy_accept:
                 break
 
 

@@ -155,7 +155,7 @@ helper.train(testloader, net, trainloader=trainloader, criterion=criterion,
 #     x = filter(lambda p: p.requires_grad, list(net.parameters()))
 #     optimizer = optim.SGD(filter(lambda p: p.requires_grad, list(net.parameters())), lr=lr / 100, momentum=momentum,
 #                           weight_decay=learning_rate_decay)
-#     helper.train(testloader, net, trainloader=trainloader, criterion=criterion,
+#     helper.train(testloader, net, trainloader=trainloader, criterion=criterion,, auto_sava=False,
 #                  optimizer=optimizer, epoch=retrain_epoch, accuracy_accept=accuracy_accept,train_path=retrain_path)
 #     # helper.test(testloader, net)
 #     print('====================== ReTrain End ======================')

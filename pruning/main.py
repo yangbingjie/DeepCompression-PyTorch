@@ -12,7 +12,10 @@ import torch.optim as optim
 import torch.multiprocessing as multiprocessing
 from torch.utils.data.sampler import SubsetRandomSampler
 import multiprocessing as mp
+
 mp.set_start_method('spawn')
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
 # # test csr
 # a = np.array([0, 3.4, 0, 0, 0.9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.7])
@@ -23,20 +26,21 @@ mp.set_start_method('spawn')
 # print(b)
 # print(bin(8)[2:].zfill(3))
 
-
+# device_id = 1
 parallel_gpu = False
 use_cuda = torch.cuda.is_available()
 train_batch_size = 16
 test_batch_size = 16
-loss_accept = 1e-2
 lr = 1e-2
-valid_size = 0.3
-retrain_num = 2
-train_epoch = 1
-retrain_epoch = 1
-
-
-train_path = './pruning/result/LeNet'
+# valid_size = 0.3
+retrain_num = 8
+train_epoch = 4
+retrain_epoch = 2
+train_path_root = './pruning/result/'
+train_path_name = 'LeNet'
+train_path = train_path_root + train_path_name
+if not os.path.exists(train_path_root):
+    os.mkdir(train_path_root)
 retrain_path = './pruning/result/LeNet_retrain'
 data_dir = './data'
 
@@ -44,36 +48,36 @@ transform = transforms.Compose(
     [transforms.ToTensor(),
      transforms.Normalize([0.5], [0.5])])
 # Loader
-kwargs = {'num_workers': 0, 'pin_memory': True} if use_cuda else {}
-
+kwargs = {'num_workers': 8, 'pin_memory': True} if use_cuda else {}
 
 trainset = torchvision.datasets.MNIST(root=data_dir, train=True,
                                       download=True, transform=transform)
-
-validset = torchvision.datasets.MNIST(root=data_dir, train=True,
-                                      download=True, transform=transform)
+#
+# validset = torchvision.datasets.MNIST(root=data_dir, train=True,
+#                                       download=True, transform=transform)
 
 testset = torchvision.datasets.MNIST(root=data_dir, train=False,
                                      download=True, transform=transform)
 
-num_test = len(testset)
-indices = list(range(num_test))
-split = int(np.floor(valid_size * num_test))
+# num_test = len(testset)
+# indices = list(range(num_test))
+# split = int(np.floor(valid_size * num_test))
 
-test_idx, valid_idx = indices[split:], indices[:split]
-test_sampler = SubsetRandomSampler(test_idx)
-valid_sampler = SubsetRandomSampler(valid_idx)
+# test_idx, valid_idx = indices[split:], indices[:split]
+# test_sampler = SubsetRandomSampler(test_idx)
+# valid_sampler = SubsetRandomSampler(valid_idx)
 
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=train_batch_size,
                                           shuffle=True,
                                           **kwargs)
-valid_loader = torch.utils.data.DataLoader(validset, batch_size=test_batch_size,
-                                           sampler=valid_sampler,
-                                           **kwargs)
+# valid_loader = torch.utils.data.DataLoader(validset, batch_size=test_batch_size,
+#                                            sampler=valid_sampler,
+#                                            **kwargs)
 
+# testloader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
+#                                          sampler=test_sampler, **kwargs)
 testloader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
-                                         sampler=test_sampler, **kwargs)
-
+                                         **kwargs)
 
 net = LeNet5()
 criterion = nn.CrossEntropyLoss()
@@ -82,6 +86,7 @@ optimizer = optim.SGD(net.parameters(), lr=lr, momentum=0.9, weight_decay=1e-5)
 if use_cuda:
     # move param and buffer to GPU
     net.cuda()
+    # torch.cuda.set_device(device_id)
     if parallel_gpu:
         # parallel use GPU
         net = torch.nn.DataParallel(net, device_ids=range(torch.cuda.device_count() - 1))
@@ -92,23 +97,28 @@ if use_cuda:
 if os.path.exists(train_path):
     net.load_state_dict(torch.load(train_path))
 else:
-    helper.train(testloader, net, trainloader, valid_loader, criterion, optimizer, epoch=train_epoch)
+    helper.train(testloader, net, trainloader, criterion, optimizer, train_path, epoch=train_epoch, use_cuda=True,
+                 epoch_step=25, accuracy_accept=100)
     torch.save(net.state_dict(), train_path)
 log.log_file_size(train_path, 'K')
 helper.test(testloader, net)
 
 for j in range(retrain_num):
     retrain_mode = 'conv' if j % 2 == 0 else 'fc'
-    net.prune_layer(prune_mode=retrain_mode)
+    sensitivity = {
+        'conv1': 0.4,
+        'conv': 0.6,
+        'fc': 0.85
+    }
+    net.prune_layer(prune_mode=retrain_mode, sensitivity=sensitivity)
     print('====================== Retrain', retrain_mode, j, 'Start ==================')
-    net.fix_layer(net, fix_mode='conv' if retrain_mode == 'fc' else 'fc')
+    # net.fix_layer(net, fix_mode='conv' if retrain_mode == 'fc' else 'fc')
     # After pruning, the network is retrained with 1/10 of the original network's learning rate
     optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()), lr=lr / 10, weight_decay=1e-5)
-    helper.train(testloader, net, trainloader, valid_loader, criterion, optimizer,
-                 epoch=retrain_epoch)
+    helper.train(testloader, net, trainloader, criterion, optimizer, retrain_path, accuracy_accept=100,
+                 epoch=retrain_epoch, save_sparse=True)
     print('====================== ReTrain End ======================')
+    log.log_file_size(retrain_path, 'K')
 
 # prune rate:  5.80908
 # The file size is 400.81 K
-helper.save_sparse_model(net, retrain_path)
-log.log_file_size(retrain_path, 'K')
