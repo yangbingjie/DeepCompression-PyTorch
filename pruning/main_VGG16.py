@@ -47,13 +47,13 @@ from torch.utils.data.sampler import SubsetRandomSampler
 # print(indices)
 
 
-# os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+# os.environ['CUDA_VISIBLE_DEVICES'] = '3'
 parallel_gpu = False
 use_cuda = torch.cuda.is_available()
 train_batch_size = 128
 train_epoch = 200
-retrain_epoch = 8
-retrain_num = 16
+retrain_epoch = 4
+retrain_num = 2
 test_batch_size = 128
 accuracy_accept = 92
 lr = 0.01
@@ -65,11 +65,35 @@ train_path_name = 'VGG16'
 train_path = train_path_root + train_path_name
 retrain_path = './pruning/result/VGG16_retrain'
 data_dir = './data'
+# sensitivity = {
+#     'fc': 0.9,
+#     'conv1': 0.5,
+#     'conv': 0.7,
+# }
+
 sensitivity = {
-    'fc': 0.9,
     'conv1': 0.5,
+    'conv2': 0.6,
+    'conv3': 0.6,
+    'conv4': 0.7,
+    'conv5': 0.7,
+    'conv6': 0.8,
+    'conv7': 0.8,
+    'conv8': 0.8,
+    'conv9': 0.9,
+    'conv10': 0.9,
+    'conv11': 0.9,
+    'conv12': 0.9,
+    'conv13': 0.9,
+    'fc1': 0.99,
+    'fc2': 0.95,
+    'fc3': 0.9,
+
     'conv': 0.7,
+    'fc': 0.95,
 }
+
+print(sensitivity)
 
 train_transform = transforms.Compose([transforms.RandomHorizontalFlip(),
                                       transforms.ToTensor(),
@@ -161,7 +185,9 @@ for j in range(retrain_num):
     x = filter(lambda p: p.requires_grad, list(net.parameters()))
     optimizer = optim.SGD(filter(lambda p: p.requires_grad, list(net.parameters())), lr=lr / 100, momentum=momentum,
                           weight_decay=learning_rate_decay)
-    helper.train(testloader, net, trainloader=trainloader, criterion=criterion, save_sparse=True, auto_save = False,
+    helper.train(testloader, net, trainloader=trainloader, criterion=criterion, save_sparse=True, auto_save=False,
                  optimizer=optimizer, epoch=retrain_epoch, accuracy_accept=accuracy_accept, train_path=retrain_path)
     print('====================== ReTrain End ======================')
-    log.log_file_size(retrain_path, 'M')
+
+helper.save_sparse_model(net, retrain_path)
+log.log_file_size(retrain_path, 'M')

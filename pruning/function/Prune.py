@@ -113,7 +113,7 @@ class PruneModule(Module):
             if name.startswith(prune_mode):
                 # The pruning threshold is chosen as a quality parameter multiplied
                 # by the standard deviation of a layer's weight
-                if name == 'conv1':
+                if name in sensitivity:
                     s = sensitivity[name]
                 elif name.startswith('fc'):
                     s = sensitivity['fc']

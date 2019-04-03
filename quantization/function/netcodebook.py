@@ -4,8 +4,6 @@ class NetCodebook():
         self.fc_bits = fc_bits
         self.codebook_index = []
         self.codebook_value = []
-        # self.conv_kmeans_model = []
-        # self.fc_kmeans_model = []
 
     def add_layer_codebook(self, layer_codebook_index, layer_codebook_value):
         self.codebook_index.append(layer_codebook_index)
