@@ -4,6 +4,7 @@ from torch.autograd import Variable
 import time
 from scipy.sparse import csr_matrix
 import torch.optim.lr_scheduler as lr_scheduler
+from tqdm import tqdm
 
 
 def test(testloader, net):
@@ -93,7 +94,7 @@ def filler_zero(value, index, bits):
     max_bits = 2 ** bits
     last_index = -1
     i = 0
-    while i < len(index):
+    while i < tqdm(len(index)):
         diff = index[i] - last_index
         if diff > max_bits:
             filer_num = int(diff / max_bits)
