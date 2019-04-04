@@ -31,8 +31,9 @@ parallel_gpu = False
 use_cuda = torch.cuda.is_available()
 sensitivity = {
     'conv1': 0.5,
-    'conv': 0.7,
-    'fc': 0.9
+    'conv2': 0.7,
+    'fc1': 0.9,
+    'fc2': 0.8
 }
 train_batch_size = 16
 test_batch_size = 16
@@ -100,9 +101,9 @@ if use_cuda:
 
 # weight_decay is L2 regularization
 if os.path.exists(train_path):
-    net.load_state_dict(torch.load(train_path))
-else:
-    helper.train(testloader, net, trainloader, criterion, optimizer, train_path, epoch=train_epoch, use_cuda=True,
+    # net.load_state_dict(torch.load(train_path))
+# else:
+    helper.train(testloader, net, trainloader, criterion, optimizer, train_path, epoch=train_epoch, use_cuda=use_cuda,
                  epoch_step=25, accuracy_accept=100)
     torch.save(net.state_dict(), train_path)
 log.log_file_size(train_path, 'K')
@@ -115,7 +116,7 @@ for j in range(retrain_num):
     # net.fix_layer(net, fix_mode='conv' if retrain_mode == 'fc' else 'fc')
     # After pruning, the network is retrained with 1/10 of the original network's learning rate
     optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()), lr=lr / 10, weight_decay=1e-5)
-    helper.train(testloader, net, trainloader, criterion, optimizer, retrain_path, accuracy_accept=100,
+    helper.train(testloader, net, trainloader, criterion, optimizer, retrain_path, accuracy_accept=100, use_cuda=use_cuda,
                  epoch=retrain_epoch, save_sparse=True)
     print('====================== ReTrain End ======================')
     log.log_file_size(retrain_path, 'K')

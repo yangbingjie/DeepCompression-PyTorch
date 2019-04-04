@@ -12,6 +12,8 @@ import torch.backends.cudnn as cudnn
 
 prune_result_path = './pruning/result/LeNet_retrain'
 retrain_codebook_root = './quantization/result/'
+if not os.path.exists(retrain_codebook_root):
+    os.mkdir(retrain_codebook_root)
 retrain_codebook_name = 'LeNet_retrain'
 retrain_epoch = 4
 
@@ -36,7 +38,7 @@ transform = transforms.Compose(
     [transforms.ToTensor(),
      transforms.Normalize([0.5], [0.5])])
 # Loader
-kwargs = {'num_workers': 15, 'pin_memory': True} if use_cuda else {}
+kwargs = {'num_workers': 16, 'pin_memory': True} if use_cuda else {}
 
 trainset = torchvision.datasets.MNIST(root=data_dir, train=True,
                                       download=True, transform=transform)
@@ -72,3 +74,5 @@ optimizer = optim.SGD(net.parameters(), lr=lr, momentum=0.9, weight_decay=1e-5)
 helper.train_codebook(count_list, use_cuda, max_conv_bit, max_fc_bit, conv_layer_length, codebook,
                       index_list, testloader, net, trainloader, criterion,
                       optimizer, retrain_codebook_path, retrain_epoch)
+
+helper.save_codebook(nz_num, conv_diff, fc_diff, codebook, retrain_codebook_path)

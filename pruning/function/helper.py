@@ -7,15 +7,16 @@ import torch.optim.lr_scheduler as lr_scheduler
 from tqdm import tqdm
 
 
-def test(testloader, net):
+def test(use_cuda, testloader, net):
     correct = 0
     total = 0
     net.eval()
     with torch.no_grad():
         for data in testloader:
             images, labels = data
-            images = images.cuda()
-            labels = labels.cuda()
+            if use_cuda:
+                images = images.cuda()
+                labels = labels.cuda()
             outputs = net(images)
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
@@ -78,7 +79,7 @@ def train(testloader, net, trainloader, criterion, optimizer, train_path, save_s
             # mean_valid_loss = np.mean(valid_loss)
             print("Epoch:", epoch, "Training Loss: %5f" % mean_train_loss)
             # "Valid Loss: %5f" % mean_valid_loss
-            accuracy = test(testloader, net)
+            accuracy = test(use_cuda, testloader, net)
             scheduler.step()
             if auto_save and accuracy > max_accuracy:
                 if save_sparse:

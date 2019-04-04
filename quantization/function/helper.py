@@ -7,16 +7,23 @@ from tqdm import tqdm
 
 def restructure_index(index_list, conv_layer_length, max_conv_bit, max_fc_bit):
     new_index_list = []
+    new_count_list = []
     count_list = []
+
     for i in range(len(index_list)):
         num = max_conv_bit if i < conv_layer_length else max_fc_bit
-        temp = list(range(num))
-        for j in range(len(index_list[i])):
-            temp[index_list[i][j]].append(j)
-        new_index_list.append(temp)
-        count_list.append(len(temp))
-    count_list = count_list[0::2] + count_list[1::2]
-    return new_index_list, count_list
+        tmp_index = []
+        tmp_count = []
+        for j in range(num):
+            tmp_index.append(np.where(np.array(index_list[i]) == j)[0].tolist())
+            tmp_count.append(len(tmp_index[j]))
+        new_index_list.append(tmp_index)
+        count_list.append(tmp_count)
+
+    for k in range(0, len(count_list), 2):
+        new_count_list.append(np.sum([count_list[k], count_list[k + 1]], axis=0).tolist())
+
+    return new_index_list, new_count_list
 
 
 def sparse_to_init(net, conv_layer_length, nz_num, sparse_conv_diff, sparse_fc_diff, codebook, max_conv_bit,
@@ -116,24 +123,22 @@ def update_codebook(count_list, codebook, net, index_list, max_conv_bit, max_fc_
 
         # elapsed = (time.clock() - start)
         # print(round(elapsed, 5))
-
-        start = time.clock()
+        #
+        # start = time.clock()
         for j in range(cluster_bits):
-            temp = grad[index]
-            sum_grad = temp.sum()
+            sum_grad = grad[index[j]].sum()
 
-            bias_temp = bias_grad[bias_index]
-            sum_grad += bias_temp.sum()
+            sum_grad += bias_grad[bias_index[j]].sum()
 
-            mean_grad = sum_grad / count_list[half_index]
+            mean_grad = sum_grad / count_list[half_index][j]
 
             codebook_centroids[j] += mean_grad
-            grad[index] = mean_grad
-            bias_grad[bias_index] = mean_grad
+            grad[index[j]] = mean_grad
+            bias_grad[bias_index[j]] = mean_grad
 
-        elapsed = (time.clock() - start)
-        print(round(elapsed, 5))
-
+        # elapsed = (time.clock() - start)
+        # print(round(elapsed, 5))
+        #
         # start = time.clock()
         grad = grad.view(grad_shape)
         params[i].grad = grad.clone()
@@ -141,8 +146,8 @@ def update_codebook(count_list, codebook, net, index_list, max_conv_bit, max_fc_
         bias_grad = bias_grad.view(bias_grad_shape)
         params[i + 1].grad = bias_grad.clone()
 
-        # elapsed = (time.clock() - start)
-        # print(round(elapsed, 5))
+    #     elapsed = (time.clock() - start)
+    #     print(round(elapsed, 5))
     # print('=========End=========')
 
 
@@ -152,7 +157,7 @@ def train_codebook(count_list, use_cuda, max_conv_bit, max_fc_bit, conv_layer_le
     scheduler = lr_scheduler.StepLR(optimizer, step_size=epoch_step, gamma=0.5)
     # max_accuracy = 0
     for epoch in range(epoch):  # loop over the dataset multiple times
-        start = time.clock()
+        # start = time.clock()
         train_loss = []
         net.train()
         for inputs, labels in tqdm(trainloader):
@@ -174,16 +179,48 @@ def train_codebook(count_list, use_cuda, max_conv_bit, max_fc_bit, conv_layer_le
 
             train_loss.append(loss.item())
 
-        elapsed = (time.clock() - start)
-        print(epoch, round(elapsed, 5))
-        print('=========End=========')
+            # # TODO delete
+            # break
+
+        # elapsed = (time.clock() - start)
+        # print(epoch, round(elapsed, 5))
+        # print('=========End=========')
 
         mean_train_loss = np.mean(train_loss)
         print("Epoch:", epoch, "Training Loss: %5f" % mean_train_loss)
         accuracy = test(testloader, net, use_cuda)
         scheduler.step()
+
+        # # TODO delete
+        # break
         # if accuracy > max_accuracy:
         #     torch.save(net.state_dict(), train_path)
         #     max_accuracy = accuracy
         # if accuracy > accuracy_accept:
         #     break
+
+def save_codebook(nz_num, conv_diff, fc_diff, codebook, path):
+    fc_merge_diff = []
+    for i in range(int(len(fc_diff) / 2)):
+        fc_merge_diff.append((fc_diff[2 * i] << 4) + fc_diff[2 * i + 1])
+    nz_num = np.asarray(nz_num, dtype=np.uint32)
+    conv_diff = np.asarray(conv_diff, dtype=np.uint8)
+    fc_merge_diff = np.asarray(fc_merge_diff, dtype=np.uint8)
+
+    codebook_index = []
+    for i in range(len(codebook.codebook_index)):
+        codebook_index.extend(codebook.codebook_index[i])
+
+    codebook_value = []
+    for j in range(len(codebook.codebook_value)):
+        codebook_value.extend(codebook.codebook_value[j])
+
+    codebook_index = np.asarray(codebook_index, dtype=np.uint8)
+    codebook_value = np.asarray(codebook_value, dtype=np.float32)
+
+    # Set to the same dtype uint8 to save
+    nz_num.dtype = np.uint8
+    codebook_value.dtype = np.uint8
+
+    sparse_obj = np.concatenate((nz_num, conv_diff, fc_merge_diff, codebook_index, codebook_value))
+    sparse_obj.tofile(path)
