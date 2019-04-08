@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+import math
 from torch.autograd import Variable
 import time
 from scipy.sparse import csr_matrix
@@ -23,7 +24,7 @@ def test(use_cuda, testloader, net):
             correct += (predicted == labels).sum().item()
 
     accuracy = (100 * correct / total)
-    print('Accuracy of the network on the test images: %d %%' % accuracy)
+    print('Accuracy of the network on the test images: %.2f %%' % accuracy)
     return accuracy
 
 
@@ -175,7 +176,7 @@ def save_sparse_model(net, path):
     if length % 2 != 0:
         fc_diff_array.append(0)
     fc_merge_diff = []
-    for i in range(int(len(fc_diff_array) / 2)):
+    for i in range(int((len(fc_diff_array)) / 2)):
         fc_merge_diff.append((fc_diff_array[2 * i] << 4) + fc_diff_array[2 * i + 1])
     nz_num = np.asarray(nz_num, dtype=np.uint32)
     conv_diff_array = np.asarray(conv_diff_array, dtype=np.uint8)
@@ -216,10 +217,13 @@ def load_sparse_model(net, path):
         elif name.startswith('fc'):
             fc_layer_num += 1
     nz_num = np.fromfile(fin, dtype=np.uint32, count=conv_layer_num + fc_layer_num)
+
     conv_diff_num = sum(nz_num[:conv_layer_num])
-    fc_diff_num = int((sum(nz_num[conv_layer_num:]) + 1) / 2)
     conv_diff = np.fromfile(fin, dtype=np.uint8, count=conv_diff_num)
-    fc_merge_diff = np.fromfile(fin, dtype=np.uint8, count=fc_diff_num)
+
+    fc_merge_num = math.floor((sum(nz_num[conv_layer_num:]) + 1) / 2)
+    fc_merge_diff = np.fromfile(fin, dtype=np.uint8, count=fc_merge_num)
+
     conv_value_array = np.fromfile(fin, dtype=np.float32, count=sum(nz_num[:conv_layer_num]))
     fc_value_array = np.fromfile(fin, dtype=np.float32, count=sum(nz_num[conv_layer_num:]))
 
@@ -233,6 +237,9 @@ def load_sparse_model(net, path):
     for i in range(len(fc_merge_diff)):
         fc_diff.append(int(fc_merge_diff[i] / max_bits))  # first 4 bits
         fc_diff.append(fc_merge_diff[i] % max_bits)  # last 4 bits
+    fc_num_sum = nz_num[conv_layer_num:].sum()
+    if fc_num_sum % 2 != 0:
+        fc_diff = fc_diff[:fc_num_sum]
     #
     # print(nz_num)
     # print(conv_diff.size, conv_diff[0:20])

@@ -56,12 +56,12 @@ def sparse_to_init(net, conv_layer_length, nz_num, sparse_conv_diff, sparse_fc_d
             value[dense_index] = float(
                 codebook.codebook_value[half_index][codebook.codebook_index[half_index][sparse_index]])
             index[dense_index] = int(codebook.codebook_index[half_index][sparse_index])
-            # print(value[dense_index])
             sparse_index += 1
             dense_index += 1
         value.reshape(shape)
         index.reshape(shape)
         index_list.append(index)
+
     new_index_list, count_list = restructure_index(index_list, conv_layer_length, max_conv_bit, max_fc_bit)
     return new_index_list, count_list
 
@@ -193,11 +193,13 @@ def train_codebook(count_list, use_cuda, max_conv_bit, max_fc_bit, conv_layer_le
 
         # # TODO delete
         # break
+
         # if accuracy > max_accuracy:
         #     torch.save(net.state_dict(), train_path)
         #     max_accuracy = accuracy
         # if accuracy > accuracy_accept:
         #     break
+
 
 def save_codebook(nz_num, conv_diff, fc_diff, codebook, path):
     fc_merge_diff = []

@@ -9,6 +9,7 @@ from quantization.net.LeNet5 import LeNet5
 import quantization.function.helper as helper
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
+import util.log as log
 
 prune_result_path = './pruning/result/LeNet_retrain'
 retrain_codebook_root = './quantization/result/'
@@ -69,11 +70,12 @@ if use_cuda:
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=lr, momentum=0.9, weight_decay=1e-5)
 
-# helper.test(testloader, net, use_cuda)
+helper.test(testloader, net, use_cuda)
 
-helper.train_codebook(count_list, use_cuda, max_conv_bit, max_fc_bit, conv_layer_length, codebook,
-                      index_list, testloader, net, trainloader, criterion,
-                      optimizer, retrain_codebook_path, retrain_epoch)
-
-helper.save_codebook(nz_num, conv_diff, fc_diff, codebook, retrain_codebook_path)
-# 100%|██████████| 60000/60000 [54:36<00:00, 19.67it/s]
+# helper.train_codebook(count_list, use_cuda, max_conv_bit, max_fc_bit, conv_layer_length, codebook,
+#                       index_list, testloader, net, trainloader, criterion,
+#                       optimizer, retrain_codebook_path, retrain_epoch)
+#
+# helper.save_codebook(nz_num, conv_diff, fc_diff, codebook, retrain_codebook_path)
+#
+# log.log_file_size(retrain_codebook_path, 'K')
