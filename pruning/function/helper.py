@@ -67,6 +67,9 @@ def train(testloader, net, trainloader, criterion, optimizer, train_path, save_s
             optimizer.step()  # update weight
 
             train_loss.append(loss.item())
+
+            # TODO delete it
+            break
         # net.eval()
         with torch.no_grad():
             # for inputs, labels in valid_loader:
@@ -189,8 +192,16 @@ def save_sparse_model(net, path):
     # print(len(conv_value_array), conv_value_array[-10:])
     # print(len(fc_value_array), fc_value_array[-10:])
 
+    # [292, 17, 8213, 15, 77744, 65, 1081, 1]
+    # 8537 [3, 1, 2, 0, 3, 2, 0, 1, 2, 4]
+    # 78891 [3, 0, 0, 4, 0, 3, 0, 6, 0, 8]
+    # 8537 [0.05499401, -0.051898967, -0.05787534, 0.047473688, -0.07086924, -0.07143683, -0.06042039, -0.06712764, -0.069831595, -0.06923757]
+    # 78891 [0.0989112, 0.109564185, -0.09654032, 0.16033189, -0.19598916, -0.11460709, -0.3204318, -0.12170401, 0.11304317, 0.14368518]
+
     # layer_index = fc_diff_array[0:0 + nz_num[4]]
     # print(sum(layer_index) + len(layer_index))
+    # print(sum(item > 15 for item in fc_diff_array))
+    # print(sum(item < 0 for item in fc_diff_array))
 
     length = len(fc_diff_array)
     if length % 2 != 0:
@@ -200,17 +211,52 @@ def save_sparse_model(net, path):
     fc_merge_diff = []
     for i in range(int((len(fc_diff_array)) / 2)):
         fc_merge_diff.append((fc_diff_array[2 * i] << 4) | fc_diff_array[2 * i + 1])
+
     nz_num = np.asarray(nz_num, dtype=np.uint32)
     conv_diff_array = np.asarray(conv_diff_array, dtype=np.uint8)
     fc_diff = np.asarray(fc_merge_diff, dtype=np.uint8)
     conv_value_array = np.asarray(conv_value_array, dtype=np.float32)
     fc_value_array = np.asarray(fc_value_array, dtype=np.float32)
 
+    # # TODO delete it
+    # # -------------------------------------------------------
+    # fc_diff1 = []
+    # bits = 4
+    # max_bits = 2 ** bits
+    # for i in range(len(fc_diff)):
+    #     fc_diff1.append(int(fc_diff[i] / max_bits))  # first 4 bits
+    #     fc_diff1.append(fc_diff[i] % max_bits)  # last 4 bits
+    # fc_num_sum = sum(nz_num[4:])
+    # if fc_num_sum % 2 != 0:
+    #     fc_diff1 = fc_diff1[:fc_num_sum]
+    # fc_diff1 = np.asarray(fc_diff1, dtype=np.uint8)
+    #
+    # layer_index = fc_diff1[0:0 + nz_num[4]]
+    # print(sum(layer_index) + len(layer_index))
+    #
+    # # 要么相同，要么fc_diff_array比fc_diff1多1
+    # print(len(fc_diff_array), len(fc_diff1))
+    # count = 0
+    # for i in range(len(fc_diff1)):
+    #     if fc_diff_array[i] != fc_diff1[i]:
+    #         count += 1
+    # print(count)
+    # # -------------------------------------------------------
+
+
     # print(nz_num)
-    # print(conv_diff_array.size, conv_diff_array[0:20])
-    # print(fc_diff.size, fc_diff[0:20])
-    # print(conv_value_array.size, conv_value_array[0:20])
-    # print(fc_value_array.size, fc_value_array[0:20])
+    # print(conv_diff_array.size, conv_diff_array[-10:])
+    # print(fc_diff.size, fc_diff[-10:])
+    # print(conv_value_array.size, conv_value_array[-10:])
+    # print(fc_value_array.size, fc_value_array[-10:])
+
+    # [  292    17  8213    15 77744    65  1081     1]
+    # 8537 [3 1 2 0 3 2 0 1 2 4]
+    # 39446 [ 35  42  66 116  19   0  64  48  96 128]
+    # 8537 [ 0.05499401 -0.05189897 -0.05787534  0.04747369 -0.07086924 -0.07143683
+    #  -0.06042039 -0.06712764 -0.06983159 -0.06923757]
+    # 78891 [ 0.0989112   0.10956419 -0.09654032  0.16033189 -0.19598916 -0.11460709
+    #  -0.3204318  -0.12170401  0.11304317  0.14368518]
 
     # Set to the same dtype uint8 to save
     nz_num.dtype = np.uint8
@@ -221,51 +267,3 @@ def save_sparse_model(net, path):
     sparse_obj.tofile(path)
 
 
-def load_sparse_model(net, path):
-    conv_layer_num = 0
-    fc_layer_num = 0
-    fin = open(path, 'rb')
-    for name, x in net.named_parameters():
-        if name.endswith('mask'):
-            continue
-        if name.startswith('conv'):
-            conv_layer_num += 1
-        elif name.startswith('fc'):
-            fc_layer_num += 1
-    nz_num = np.fromfile(fin, dtype=np.uint32, count=conv_layer_num + fc_layer_num)
-
-    conv_diff_num = sum(nz_num[:conv_layer_num])
-    conv_diff = np.fromfile(fin, dtype=np.uint8, count=conv_diff_num)
-
-    fc_merge_num = int((sum(nz_num[conv_layer_num:]) + 1) / 2)
-    fc_merge_diff = np.fromfile(fin, dtype=np.uint8, count=fc_merge_num)
-
-    conv_value_array = np.fromfile(fin, dtype=np.float32, count=sum(nz_num[:conv_layer_num]))
-    fc_value_array = np.fromfile(fin, dtype=np.float32, count=sum(nz_num[conv_layer_num:]))
-
-    # print(fc_merge_diff.size, fc_merge_diff[0:10])
-    # 98637 [ 3 16 16 16  0 66  0  1  4  2]
-
-    # Split 8 bits index to 4 bits index
-    fc_diff = []
-    bits = 4
-    max_bits = 2 ** bits
-    for i in range(len(fc_merge_diff)):
-        fc_diff.append(int(fc_merge_diff[i] / max_bits))  # first 4 bits
-        fc_diff.append(fc_merge_diff[i] % max_bits)  # last 4 bits
-    fc_num_sum = nz_num[conv_layer_num:].sum()
-    if fc_num_sum % 2 != 0:
-        fc_diff = fc_diff[:fc_num_sum]
-    fc_diff = np.asarray(fc_diff, dtype=np.uint8)
-
-    layer_index = fc_diff[0:0 + nz_num[4]]
-    # print(sum(layer_index) + len(layer_index))
-
-    # print(nz_num)
-    # print(conv_diff.size, conv_diff[-10:])
-    # print(len(fc_diff), fc_diff[-10:])
-    # print(conv_value_array.size, conv_value_array[-10:])
-    # print(fc_value_array.size, fc_value_array[-10:])
-
-
-    return conv_layer_num, nz_num, conv_diff, fc_diff, conv_value_array, fc_value_array

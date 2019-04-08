@@ -5,6 +5,73 @@ import time
 from tqdm import tqdm
 
 
+def load_sparse_model(net, path, bits):
+    conv_layer_num = 0
+    fc_layer_num = 0
+    fin = open(path, 'rb')
+    for name, x in net.named_parameters():
+        if name.endswith('mask'):
+            continue
+        if name.startswith('conv'):
+            conv_layer_num += 1
+        elif name.startswith('fc'):
+            fc_layer_num += 1
+    nz_num = np.fromfile(fin, dtype=np.uint32, count=conv_layer_num + fc_layer_num)
+
+    conv_diff_num = sum(nz_num[:conv_layer_num])
+    conv_diff = np.fromfile(fin, dtype=np.uint8, count=conv_diff_num)
+
+    fc_merge_num = int((sum(nz_num[conv_layer_num:]) + 1) / 2)
+    fc_merge_diff = np.fromfile(fin, dtype=np.uint8, count=fc_merge_num)
+
+    conv_value_array = np.fromfile(fin, dtype=np.float32, count=sum(nz_num[:conv_layer_num]))
+    fc_value_array = np.fromfile(fin, dtype=np.float32, count=sum(nz_num[conv_layer_num:]))
+
+    # print(nz_num)
+    # print(conv_diff.size, conv_diff[-10:])
+    # print(len(fc_merge_diff), fc_merge_diff[-10:])
+    # print(conv_value_array.size, conv_value_array[-10:])
+    # print(fc_value_array.size, fc_value_array[-10:])
+
+    # [  292    17  8213    15 77744    65  1081     1]
+    # 8537 [3 1 2 0 3 2 0 1 2 4]
+    # 78891 [3 0 0 4 0 3 0 6 0 8]
+    # 8537 [ 0.05499401 -0.05189897 -0.05787534  0.04747369 -0.07086924 -0.07143683
+    #  -0.06042039 -0.06712764 -0.06983159 -0.06923757]
+    # 78891 [ 0.0989112   0.10956419 -0.09654032  0.16033189 -0.19598916 -0.11460709
+    #  -0.3204318  -0.12170401  0.11304317  0.14368518]
+
+    # Split 8 bits index to 4 bits index
+    fc_diff = []
+    max_bits = 2 ** bits
+    for i in range(len(fc_merge_diff)):
+        fc_diff.append(int(fc_merge_diff[i] / max_bits))  # first 4 bits
+        fc_diff.append(fc_merge_diff[i] % max_bits)  # last 4 bits
+    fc_num_sum = nz_num[conv_layer_num:].sum()
+    if fc_num_sum % 2 != 0:
+        fc_diff = fc_diff[:fc_num_sum]
+    fc_diff = np.asarray(fc_diff, dtype=np.uint8)
+
+    # layer_index = fc_diff[0:0 + nz_num[4]]
+    # print(sum(layer_index) + len(layer_index))
+
+    # print(nz_num)
+    # print(conv_diff.size, conv_diff[-10:])
+    # print(len(fc_diff), fc_diff[-10:])
+    # print(conv_value_array.size, conv_value_array[-10:])
+    # print(fc_value_array.size, fc_value_array[-10:])
+
+    # [  292    17  8213    15 77744    65  1081     1]
+    # 8537 [3 1 2 0 3 2 0 1 2 4]
+    # 78891 [19  0  0  2  0  1 16  3  0  4]
+    # 8537 [ 0.05499401 -0.05189897 -0.05787534  0.04747369 -0.07086924 -0.07143683
+    #  -0.06042039 -0.06712764 -0.06983159 -0.06923757]
+    # 78891 [ 0.0989112   0.10956419 -0.09654032  0.16033189 -0.19598916 -0.11460709
+    #  -0.3204318  -0.12170401  0.11304317  0.14368518]
+
+    return conv_layer_num, nz_num, conv_diff, fc_diff, conv_value_array, fc_value_array
+
+
 def restructure_index(index_list, conv_layer_length, max_conv_bit, max_fc_bit):
     new_index_list = []
     new_count_list = []
@@ -56,7 +123,7 @@ def sparse_to_init(net, conv_layer_length, nz_num, sparse_conv_diff, sparse_fc_d
         while sparse_index < len(layer_diff):
             dense_index += layer_diff[sparse_index]
             # if dense_index == 400000:
-                # print(sparse_index)
+            # print(sparse_index)
             value[dense_index] = float(codebook.codebook_value[half_index][codebook_index_array[sparse_index]])
             index[dense_index] = int(codebook_index_array[sparse_index])
             sparse_index += 1
@@ -204,28 +271,41 @@ def train_codebook(count_list, use_cuda, max_conv_bit, max_fc_bit, conv_layer_le
         #     break
 
 
-def save_codebook(nz_num, conv_diff, fc_diff, codebook, path):
+def save_codebook(conv_layer_length, nz_num, conv_diff, fc_diff, codebook, path):
     fc_merge_diff = []
     for i in range(int(len(fc_diff) / 2)):
-        fc_merge_diff.append((fc_diff[2 * i] << 4) + fc_diff[2 * i + 1])
+        fc_merge_diff.append((fc_diff[2 * i] << 4) | fc_diff[2 * i + 1])
     nz_num = np.asarray(nz_num, dtype=np.uint32)
     conv_diff = np.asarray(conv_diff, dtype=np.uint8)
     fc_merge_diff = np.asarray(fc_merge_diff, dtype=np.uint8)
 
-    codebook_index = []
-    for i in range(len(codebook.codebook_index)):
-        codebook_index.extend(codebook.codebook_index[i])
+    conv_codebook_index = []
+    for m in range(conv_layer_length):
+        conv_codebook_index.extend(codebook.codebook_index[m])
+
+    fc_codebook_index = []
+    for k in range(conv_layer_length, len(codebook.codebook_index)):
+        fc_codebook_index.extend(codebook.codebook_index[k])
 
     codebook_value = []
     for j in range(len(codebook.codebook_value)):
         codebook_value.extend(codebook.codebook_value[j])
 
-    codebook_index = np.asarray(codebook_index, dtype=np.uint8)
+    length = len(fc_codebook_index)
+    if length % 2 != 0:
+        fc_codebook_index.append(0)
+    fc_codebook_index = np.array(fc_codebook_index, dtype=np.uint8)
+    fc_codebook_index_merge = []
+    for i in range(int((len(fc_codebook_index)) / 2)):
+        fc_codebook_index_merge.append((fc_codebook_index[2 * i] << 4) | fc_codebook_index[2 * i + 1])
+
+    conv_codebook_index = np.asarray(conv_codebook_index, dtype=np.uint8)
+    fc_codebook_index_merge = np.asarray(fc_codebook_index_merge, dtype=np.uint8)
     codebook_value = np.asarray(codebook_value, dtype=np.float32)
 
     # Set to the same dtype uint8 to save
     nz_num.dtype = np.uint8
     codebook_value.dtype = np.uint8
 
-    sparse_obj = np.concatenate((nz_num, conv_diff, fc_merge_diff, codebook_index, codebook_value))
+    sparse_obj = np.concatenate((nz_num, conv_diff, fc_merge_diff, conv_codebook_index, fc_codebook_index_merge, codebook_value))
     sparse_obj.tofile(path)

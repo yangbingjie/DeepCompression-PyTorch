@@ -1,12 +1,12 @@
 import numpy as np
-import pruning.function.helper as helper
+import quantization.function.helper as helper
 from sklearn.cluster import KMeans
 from quantization.function.netcodebook import NetCodebook
 
 
-def share_weight(net, before_path, conv_bits, fc_bits):
+def share_weight(net, before_path, conv_bits, fc_bits, prune_fc_bits):
     conv_layer_length, nz_num, conv_diff, fc_diff, conv_value_array, fc_value_array \
-        = helper.load_sparse_model(net, before_path)
+        = helper.load_sparse_model(net, before_path, prune_fc_bits)
     conv_index = 0
     fc_index = 0
     codebook = NetCodebook(conv_bits, fc_bits)

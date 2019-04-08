@@ -15,7 +15,7 @@ prune_result_path = './pruning/result/LeNet_retrain'
 retrain_codebook_root = './quantization/result/'
 if not os.path.exists(retrain_codebook_root):
     os.mkdir(retrain_codebook_root)
-retrain_codebook_name = 'LeNet_retrain'
+retrain_codebook_name = 'LeNet_codebook'
 retrain_epoch = 1
 
 use_cuda = torch.cuda.is_available()
@@ -25,15 +25,15 @@ parallel_gpu = False
 loss_accept = 1e-2
 lr = 1e-2
 conv_bits = 8
-fc_bits = 5
-
+prune_fc_bits = 4
+quantization_fc_bits = 4
 data_dir = './data'
 retrain_codebook_path = retrain_codebook_root + retrain_codebook_name
 if not os.path.exists(retrain_codebook_root):
     os.mkdir(retrain_codebook_root)
 
 prune_net = PruneLeNet5()
-conv_layer_length, codebook, nz_num, conv_diff, fc_diff = share_weight(prune_net, prune_result_path, conv_bits, fc_bits)
+conv_layer_length, codebook, nz_num, conv_diff, fc_diff = share_weight(prune_net, prune_result_path, conv_bits, quantization_fc_bits, prune_fc_bits)
 
 transform = transforms.Compose(
     [transforms.ToTensor(),
@@ -56,9 +56,9 @@ testloader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
 
 net = LeNet5()
 max_conv_bit = 2 ** conv_bits
-max_fc_bit = 2 ** fc_bits
+max_fc_bit = 2 ** prune_fc_bits
 index_list, count_list = helper.sparse_to_init(net, conv_layer_length, nz_num, conv_diff, fc_diff, codebook, max_conv_bit, max_fc_bit)
-# cluster_count = helper.compute_cluster_count(index_list, conv_layer_length, max_conv_bit, max_fc_bit)
+# cluster_count = function.compute_cluster_count(index_list, conv_layer_length, max_conv_bit, max_fc_bit)
 if use_cuda:
     # move param and buffer to GPU
     net.cuda()
@@ -76,6 +76,6 @@ helper.train_codebook(count_list, use_cuda, max_conv_bit, max_fc_bit, conv_layer
                       index_list, testloader, net, trainloader, criterion,
                       optimizer, retrain_codebook_path, retrain_epoch)
 
-helper.save_codebook(nz_num, conv_diff, fc_diff, codebook, retrain_codebook_path)
+helper.save_codebook(conv_layer_length, nz_num, conv_diff, fc_diff, codebook, retrain_codebook_path)
 
 log.log_file_size(retrain_codebook_path, 'K')
