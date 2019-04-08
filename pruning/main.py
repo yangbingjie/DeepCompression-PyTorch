@@ -40,8 +40,8 @@ test_batch_size = 16
 lr = 1e-2
 # valid_size = 0.3
 retrain_num = 8
-train_epoch = 4
-retrain_epoch = 2
+train_epoch = 2
+retrain_epoch = 1
 train_path_root = './pruning/result/'
 train_path_name = 'LeNet'
 train_path = train_path_root + train_path_name
@@ -101,17 +101,17 @@ if use_cuda:
 
 # weight_decay is L2 regularization
 if os.path.exists(train_path):
-    # net.load_state_dict(torch.load(train_path))
-# else:
+    net.load_state_dict(torch.load(train_path))
+else:
     helper.train(testloader, net, trainloader, criterion, optimizer, train_path, epoch=train_epoch, use_cuda=use_cuda,
                  epoch_step=25, accuracy_accept=100)
     torch.save(net.state_dict(), train_path)
 log.log_file_size(train_path, 'K')
-helper.test(testloader, net)
+helper.test(use_cuda, testloader, net)
 
 for j in range(retrain_num):
     retrain_mode = 'conv' if j % 2 == 0 else 'fc'
-    net.prune_layer(prune_mode=retrain_mode, sensitivity=sensitivity)
+    net.prune_layer(prune_mode=retrain_mode, use_cuda=use_cuda, sensitivity=sensitivity)
     print('====================== Retrain', retrain_mode, j, 'Start ==================')
     # net.fix_layer(net, fix_mode='conv' if retrain_mode == 'fc' else 'fc')
     # After pruning, the network is retrained with 1/10 of the original network's learning rate

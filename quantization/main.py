@@ -15,7 +15,7 @@ retrain_codebook_root = './quantization/result/'
 if not os.path.exists(retrain_codebook_root):
     os.mkdir(retrain_codebook_root)
 retrain_codebook_name = 'LeNet_retrain'
-retrain_epoch = 4
+retrain_epoch = 1
 
 use_cuda = torch.cuda.is_available()
 train_batch_size = 1
@@ -76,3 +76,4 @@ helper.train_codebook(count_list, use_cuda, max_conv_bit, max_fc_bit, conv_layer
                       optimizer, retrain_codebook_path, retrain_epoch)
 
 helper.save_codebook(nz_num, conv_diff, fc_diff, codebook, retrain_codebook_path)
+# 100%|██████████| 60000/60000 [54:36<00:00, 19.67it/s]

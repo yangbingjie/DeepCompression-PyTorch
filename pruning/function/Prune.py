@@ -7,16 +7,18 @@ from torch.nn.modules.module import Module
 
 
 class MaskModule(Module):
-    def prune(self, threshold):
-        new_weight_mask = torch.where(abs(self.weight.data) < threshold,
-                                      torch.zeros_like(self.weight.data).float().cuda(),
-                                      self.weight_mask.float())
+    def prune(self, threshold, use_cuda=True, bias_threshold=None):
+        zero_weight = torch.zeros_like(self.weight.data).float()
+        if use_cuda:
+            zero_weight = zero_weight.cuda()
+        new_weight_mask = torch.where(abs(self.weight.data) < threshold, zero_weight, self.weight_mask.float())
         self.weight.data = self.weight * new_weight_mask.float()
         self.weight_mask.data = new_weight_mask
-        if self.bias is not None:
-            new_bias_mask = torch.where(abs(self.bias.data) < threshold,
-                                        torch.zeros_like(self.bias.data).byte().cuda(),
-                                        self.bias_mask)
+        if self.bias is not None and bias_threshold is not None:
+            zero_bias = torch.zeros_like(self.bias.data).float()
+            if use_cuda:
+                zero_bias = zero_bias.cuda()
+            new_bias_mask = torch.where(abs(self.bias.data) < threshold, zero_bias, self.bias_mask.float())
             self.bias.data = self.bias * new_bias_mask.float()
             self.bias_mask.data = new_bias_mask
 
@@ -99,7 +101,7 @@ class PruneModule(Module):
     # 'not': is not retrain
     # 'conv': retrain conv layer, fix fc layer
     # 'fc': retrain fc layer, fix conv layer
-    def prune_layer(self, sensitivity=None, prune_mode='not'):
+    def prune_layer(self, sensitivity=None, use_cuda=True, prune_mode='not'):
         if prune_mode == 'not':
             return
         if sensitivity is None:
@@ -119,9 +121,12 @@ class PruneModule(Module):
                     s = sensitivity['fc']
                 else:
                     s = sensitivity['conv']
-                threshold = module.weight.data.std() * s
+                filter_weight = torch.masked_select(module.weight, module.weight_mask.byte())
+                threshold = torch.std(filter_weight) * s
+                filter_bias = torch.masked_select(module.bias, module.bias_mask.byte())
+                bias_threshold = torch.std(filter_bias) * s
                 # print('Pruning layer', name, ' threshold: ', round(threshold, 4))
-                module.prune(threshold)
+                module.prune(threshold, use_cuda, bias_threshold)
         # print('====== prune end ======')
 
     # fix_mode: fix 'conv' or 'fc'

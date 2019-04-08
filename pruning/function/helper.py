@@ -95,7 +95,7 @@ def filler_zero(value, index, bits):
     max_bits = 2 ** bits
     last_index = -1
     i = 0
-    while i < tqdm(len(index)):
+    while i < len(index):
         diff = index[i] - last_index
         if diff > max_bits:
             filer_num = int(diff / max_bits)
@@ -127,36 +127,36 @@ def save_sparse_model(net, path):
     for key, tensor in net.state_dict().items():
         if key.endswith('mask'):
             continue
-        print('=======', key, 'start =========')
+        # print('=======', key, 'start =========')
         if key.startswith('conv'):
             # 8 bits for conv layer index diff
-            start = time.clock()
+            # start = time.clock()
             mat = csr_matrix(tensor.cpu().reshape(-1))
             value_list, diff_list = filler_zero(mat.data, mat.indices, 8)
-            elapsed = (time.clock() - start)
-            print('csr', round(elapsed, 5))
+            # elapsed = (time.clock() - start)
+            # print('csr', round(elapsed, 5))
 
-            start = time.clock()
+            # start = time.clock()
             conv_diff_array.extend(diff_list)
             conv_value_array.extend(value_list)
-            elapsed = (time.clock() - start)
-            print('extend', round(elapsed, 5))
+            # elapsed = (time.clock() - start)
+            # print('extend', round(elapsed, 5))
 
         else:
             # 4 bits for fc layer index diff
-            start = time.clock()
+            # start = time.clock()
             mat = csr_matrix(tensor.cpu().reshape(-1))
             value_list, diff_list = filler_zero(mat.data, mat.indices, 4)
-            elapsed = (time.clock() - start)
-            print('csr', round(elapsed, 5))
+            # elapsed = (time.clock() - start)
+            # print('csr', round(elapsed, 5))
 
             start = time.clock()
             fc_diff_array.extend(diff_list)
             fc_value_array.extend(value_list)
-            elapsed = (time.clock() - start)
-            print('extend', round(elapsed, 5))
+            # elapsed = (time.clock() - start)
+            # print('extend', round(elapsed, 5))
 
-        print('=======', key, len(diff_list), 'end =======')
+        # print('=======', key, len(diff_list), 'end =======')
         nz_num.append(len(diff_list))
 
     # print(nz_num)
