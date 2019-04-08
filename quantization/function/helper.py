@@ -51,11 +51,14 @@ def sparse_to_init(net, conv_layer_length, nz_num, sparse_conv_diff, sparse_fc_d
         dense_index = 0
         sparse_index = 0
         half_index = int(i / 2)
+        codebook_index_array = codebook.codebook_index[half_index]
+        # print(layer_diff.sum() + len(layer_diff))
         while sparse_index < len(layer_diff):
             dense_index += layer_diff[sparse_index]
-            value[dense_index] = float(
-                codebook.codebook_value[half_index][codebook.codebook_index[half_index][sparse_index]])
-            index[dense_index] = int(codebook.codebook_index[half_index][sparse_index])
+            # if dense_index == 400000:
+                # print(sparse_index)
+            value[dense_index] = float(codebook.codebook_value[half_index][codebook_index_array[sparse_index]])
+            index[dense_index] = int(codebook_index_array[sparse_index])
             sparse_index += 1
             dense_index += 1
         value.reshape(shape)
