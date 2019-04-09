@@ -20,9 +20,9 @@ def load_codebook(net, path, conv_bits, fc_bits):
     fc_merge_num = math.floor((sum(nz_num[conv_layer_num:]) + 1) / 2)
     fc_merge_diff = np.fromfile(fin, dtype=np.uint8, count=fc_merge_num)
 
-    print(nz_num)
-    print(len(conv_diff), conv_diff[-10:])
-    print(len(fc_merge_diff), fc_merge_diff[-10:])
+    # print(nz_num)
+    # print(len(conv_diff), conv_diff[-10:])
+    # print(len(fc_merge_diff), fc_merge_diff[-10:])
     # [  292    17  8213    15 77747    65   818     1]
     # 8537 [3 1 2 0 3 2 0 1 2 4]
     # 39316 [ 17 242  34  50 164  44  26   3   6 128]
@@ -42,9 +42,9 @@ def load_codebook(net, path, conv_bits, fc_bits):
     codebook_value_num = int((2 ** conv_bits) * (conv_layer_num / 2) + (2 ** fc_bits) * (fc_layer_num / 2))
     codebook_value = np.fromfile(fin, dtype=np.float32, count=codebook_value_num)
 
-    print(len(conv_codebook_index), conv_codebook_index[-10:])
-    print(len(fc_codebook_index_merge), fc_codebook_index_merge[-10:])
-    print(len(codebook_value), codebook_value[-10:])
+    # print(len(conv_codebook_index), conv_codebook_index[-10:])
+    # print(len(fc_codebook_index_merge), fc_codebook_index_merge[-10:])
+    # print(len(codebook_value), codebook_value[-10:])
     # 8537 [136 122 119 132 236  73 126  75  16  74]
     # 39316 [170 134 100 198 167  99 150  37   5 176]
     # 544 [ 0.15731171  0.11615839 -0.00030401 -0.12842683  0.12538931  0.12218501
@@ -60,12 +60,12 @@ def load_codebook(net, path, conv_bits, fc_bits):
         fc_codebook_index = fc_codebook_index[:fc_num_sum]
     fc_codebook_index = np.asarray(fc_codebook_index, dtype=np.uint8)
 
-    print(nz_num)
-    print(len(conv_diff), conv_diff[-10:])
-    print(len(fc_diff), fc_diff[-10:])
-    print(len(conv_codebook_index), conv_codebook_index[-10:])
-    print(len(fc_codebook_index), fc_codebook_index[-10:])
-    print(len(codebook_value), codebook_value[-10:])
+    # print(nz_num)
+    # print(len(conv_diff), conv_diff[-10:])
+    # print(len(fc_diff), fc_diff[-10:])
+    # print(len(conv_codebook_index), conv_codebook_index[-10:])
+    # print(len(fc_codebook_index), fc_codebook_index[-10:])
+    # print(len(codebook_value), codebook_value[-10:])
     # [  292    17  8213    15 77747    65   818     1]
     # 8537 [3 1 2 0 3 2 0 1 2 4]
     # 78631 [4, 2, 12, 1, 10, 0, 3, 0, 6, 8]
@@ -74,4 +74,42 @@ def load_codebook(net, path, conv_bits, fc_bits):
     # 544 [ 0.15731171  0.11615839 -0.00030401 -0.12842683  0.12538931  0.12218501
     #   0.18652469  0.19523832  0.25232622  0.296758  ]
 
-    return nz_num, conv_diff, fc_diff, conv_codebook_index, fc_codebook_index, codebook_value
+    return conv_layer_num, nz_num, conv_diff, fc_diff, conv_codebook_index, fc_codebook_index, codebook_value
+
+
+def codebook_to_init(net, conv_layer_length, nz_num, conv_diff, fc_diff, conv_codebook_index, fc_codebook_index,
+                     codebook_value, conv_bits, fc_bits):
+    state_dict = net.state_dict()
+    conv_layer_index = 0
+    fc_layer_index = 0
+    codebook_value_index = 0
+    max_conv_bits = 2 ** conv_bits
+    max_fc_bits = 2 ** fc_bits
+    layer_codebook_value = []
+    for i, (key, value) in enumerate(state_dict.items()):
+        shape = value.shape
+        value = value.view(-1)
+        value.zero_()
+        if i < conv_layer_length:
+            layer_diff = conv_diff[conv_layer_index:conv_layer_index + nz_num[i]]
+            layer_codebook_index = conv_codebook_index[conv_layer_index:conv_layer_index + nz_num[i]]
+            if not key.endswith('bias'):
+                layer_codebook_value = codebook_value[codebook_value_index:codebook_value_index + max_conv_bits]
+                codebook_value_index += max_conv_bits
+            conv_layer_index += nz_num[i]
+        else:
+            layer_diff = fc_diff[fc_layer_index:fc_layer_index + nz_num[i]]
+            layer_codebook_index = fc_codebook_index[fc_layer_index:fc_layer_index + nz_num[i]]
+            if not key.endswith('bias'):
+                layer_codebook_value = codebook_value[codebook_value_index:codebook_value_index + max_fc_bits]
+                codebook_value_index += max_fc_bits
+            fc_layer_index += nz_num[i]
+
+        dense_index = 0
+        sparse_index = 0
+        while sparse_index < len(layer_diff):
+            dense_index += layer_diff[sparse_index]
+            value[dense_index] = float(layer_codebook_value[layer_codebook_index[sparse_index]])
+            sparse_index += 1
+            dense_index += 1
+        value.reshape(shape)

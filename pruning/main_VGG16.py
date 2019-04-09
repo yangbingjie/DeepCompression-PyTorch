@@ -55,7 +55,6 @@ train_epoch = 200
 retrain_epoch = 4
 retrain_num = 2
 test_batch_size = 128
-accuracy_accept = 92
 lr = 0.01
 momentum = 0.9
 # valid_size = 0.001
@@ -159,7 +158,7 @@ if os.path.exists(train_path):
     net.load_state_dict(torch.load(train_path))
 else:
     helper.train(testloader, net, trainloader=trainloader, criterion=criterion,
-                 optimizer=optimizer, epoch=train_epoch, accuracy_accept=accuracy_accept, train_path=train_path)
+                 optimizer=optimizer, epoch=train_epoch, train_path=train_path)
 
 helper.test(testloader, net)
 log.log_file_size(train_path, 'M')
@@ -186,7 +185,7 @@ for j in range(retrain_num):
     optimizer = optim.SGD(filter(lambda p: p.requires_grad, list(net.parameters())), lr=lr / 100, momentum=momentum,
                           weight_decay=learning_rate_decay)
     helper.train(testloader, net, trainloader=trainloader, criterion=criterion, save_sparse=True, auto_save=False,
-                 optimizer=optimizer, epoch=retrain_epoch, accuracy_accept=accuracy_accept, train_path=retrain_path)
+                 optimizer=optimizer, epoch=retrain_epoch, train_path=retrain_path)
     print('====================== ReTrain End ======================')
 
 helper.save_sparse_model(net, retrain_path)

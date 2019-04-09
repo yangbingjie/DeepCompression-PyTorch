@@ -4,6 +4,7 @@ import numpy as np
 import time
 import math
 from tqdm import tqdm
+from pruning.function.helper import test
 
 
 def load_sparse_model(net, path, bits):
@@ -149,34 +150,15 @@ def sparse_to_init(net, conv_layer_length, nz_num, sparse_conv_diff, sparse_fc_d
 #     return cluster_count
 
 
-def test(testloader, net, use_cuda):
-    correct = 0
-    total = 0
-    net.eval()
-    with torch.no_grad():
-        for data in testloader:
-            images, labels = data
-            if use_cuda:
-                images = images.cuda()
-                labels = labels.cuda()
-            outputs = net(images)
-            _, predicted = torch.max(outputs.data, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
-
-    accuracy = round(100 * correct / total, 2)
-    print('Accuracy of the network on the test images: %f %%' % accuracy)
-    return accuracy
-
-
-def update_codebook(count_list, codebook, net, index_list, max_conv_bit, max_fc_bit, conv_layer_length):
+def update_codebook(count_list, codebook, net, index_list, max_conv_bit, max_fc_bit, conv_layer_length, max_value):
     params = list(net.parameters())
     # print('========Start========')
     for i in range(0, len(params), 2):
         # start = time.clock()
-        para = params[i]
-        grad_shape = para.grad.shape
-        grad = para.grad
+
+        param = params[i]
+        grad_shape = param.grad.shape
+        grad = param.grad
         grad = grad.view(-1)
         index = index_list[i]
 
@@ -203,14 +185,22 @@ def update_codebook(count_list, codebook, net, index_list, max_conv_bit, max_fc_
 
             mean_grad = sum_grad / count_list[half_index][j]
 
-            codebook_centroids[j] += mean_grad
-            grad[index[j]] = mean_grad
-            bias_grad[bias_index[j]] = mean_grad
+            if codebook_centroids[j] + mean_grad < max_value:
+                grad[index[j]] = mean_grad
+                bias_grad[bias_index[j]] = mean_grad
+                codebook_centroids[j] += mean_grad
+            else:
+                # Restrict grad range to avoid nan value
+                squeeze_grad = max_value - float(codebook_centroids[j])
+                grad[index[j]] = squeeze_grad
+                bias_grad[bias_index[j]] = squeeze_grad
+                codebook_centroids[j] = max_value
 
         # elapsed = (time.clock() - start)
         # print(round(elapsed, 5))
         #
         # start = time.clock()
+
         grad = grad.view(grad_shape)
         params[i].grad = grad.clone()
 
@@ -224,7 +214,7 @@ def update_codebook(count_list, codebook, net, index_list, max_conv_bit, max_fc_
 
 def train_codebook(count_list, use_cuda, max_conv_bit, max_fc_bit, conv_layer_length,
                    codebook, index_list, testloader, net, trainloader, criterion, optimizer,
-                   train_path, epoch=1, accuracy_accept=99, epoch_step=25):
+                    max_value, epoch=1, epoch_step=25,):
     scheduler = lr_scheduler.StepLR(optimizer, step_size=epoch_step, gamma=0.5)
     # max_accuracy = 0
     for epoch in range(epoch):  # loop over the dataset multiple times
@@ -244,7 +234,7 @@ def train_codebook(count_list, use_cuda, max_conv_bit, max_fc_bit, conv_layer_le
             loss = criterion(outputs, labels)  # compute loss
             loss.backward()  # backward
 
-            update_codebook(count_list, codebook, net, index_list, max_conv_bit, max_fc_bit, conv_layer_length)
+            update_codebook(count_list, codebook, net, index_list, max_conv_bit, max_fc_bit, conv_layer_length, max_value)
 
             optimizer.step()  # update weight
 
@@ -259,17 +249,8 @@ def train_codebook(count_list, use_cuda, max_conv_bit, max_fc_bit, conv_layer_le
 
         mean_train_loss = np.mean(train_loss)
         print("Epoch:", epoch, "Training Loss: %5f" % mean_train_loss)
-        accuracy = test(testloader, net, use_cuda)
+        accuracy = test(use_cuda, testloader, net)
         scheduler.step()
-
-        # # TODO delete
-        # break
-
-        # if accuracy > max_accuracy:
-        #     torch.save(net.state_dict(), train_path)
-        #     max_accuracy = accuracy
-        # if accuracy > accuracy_accept:
-        #     break
 
 
 def save_codebook(conv_layer_length, nz_num, conv_diff, fc_diff, codebook, path):
@@ -324,6 +305,8 @@ def save_codebook(conv_layer_length, nz_num, conv_diff, fc_diff, codebook, path)
     conv_codebook_index = np.asarray(conv_codebook_index, dtype=np.uint8)
     fc_codebook_index_merge = np.asarray(fc_codebook_index_merge, dtype=np.uint8)
     codebook_value = np.asarray(codebook_value, dtype=np.float32)
+
+    # print(any(np.isnan(codebook_value)))
 
     # print(nz_num)
     # print(len(conv_diff), conv_diff[-10:])

@@ -41,7 +41,7 @@ def test(use_cuda, testloader, net):
 
 
 def train(testloader, net, trainloader, criterion, optimizer, train_path, save_sparse=False, epoch=1, use_cuda=True,
-          accuracy_accept=99, epoch_step=25, auto_save=True):
+        epoch_step=25, auto_save=True):
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1,
     #                                                        patience=1, verbose=True)
     scheduler = lr_scheduler.StepLR(optimizer, step_size=epoch_step, gamma=0.5)
@@ -52,7 +52,7 @@ def train(testloader, net, trainloader, criterion, optimizer, train_path, save_s
         train_loss = []
         # valid_loss = []
         net.train()
-        for inputs, labels in trainloader:
+        for inputs, labels in tqdm(trainloader):
             # get the inputs
             if use_cuda:
                 inputs = inputs.cuda()
@@ -67,18 +67,7 @@ def train(testloader, net, trainloader, criterion, optimizer, train_path, save_s
             optimizer.step()  # update weight
 
             train_loss.append(loss.item())
-
-            # TODO delete it
-            break
-        # net.eval()
         with torch.no_grad():
-            # for inputs, labels in valid_loader:
-            #     inputs = inputs.cuda()
-            #     labels = labels.cuda()
-            #     output = net(inputs)
-            #     loss = criterion(output, labels)
-            #     valid_loss.append(loss.item())
-
             mean_train_loss = np.mean(train_loss)
             # mean_valid_loss = np.mean(valid_loss)
             print("Epoch:", epoch, "Training Loss: %5f" % mean_train_loss)
@@ -91,13 +80,14 @@ def train(testloader, net, trainloader, criterion, optimizer, train_path, save_s
                 else:
                     torch.save(net.state_dict(), train_path)
                 max_accuracy = accuracy
-            if accuracy >= accuracy_accept:
-                break
+
 
 
 def filler_zero(value, index, max_bits):
     last_index = -1
     i = 0
+    if index.size == 0:
+        return index, index
     while last_index < index[-1]:
         diff = index[i] - last_index - 1
         if diff > max_bits - 1:
@@ -212,6 +202,7 @@ def save_sparse_model(net, path):
         fc_merge_diff.append((fc_diff_array[2 * i] << 4) | fc_diff_array[2 * i + 1])
 
     nz_num = np.asarray(nz_num, dtype=np.uint32)
+    print('The parameters are', round(nz_num.sum() / 1024, 2), 'K')
     conv_diff_array = np.asarray(conv_diff_array, dtype=np.uint8)
     fc_diff = np.asarray(fc_merge_diff, dtype=np.uint8)
     conv_value_array = np.asarray(conv_value_array, dtype=np.float32)

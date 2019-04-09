@@ -30,18 +30,19 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 parallel_gpu = False
 use_cuda = torch.cuda.is_available()
 sensitivity = {
-    'conv1': 0.5,
+    'conv1': 0.44,
     'conv2': 0.7,
-    'fc1': 0.95,
-    'fc2': 0.9
+    'fc1': 0.88,
+    'fc2': 0.8
 }
-train_batch_size = 16
-test_batch_size = 16
+print(sensitivity)
+train_batch_size = 32
+test_batch_size = 32
 lr = 1e-2
 # valid_size = 0.3
-retrain_num = 4
-train_epoch = 2
-retrain_epoch = 1
+retrain_num = 9
+train_epoch = 4
+retrain_epoch = 4
 train_path_root = './pruning/result/'
 train_path_name = 'LeNet'
 train_path = train_path_root + train_path_name
@@ -54,7 +55,7 @@ transform = transforms.Compose(
     [transforms.ToTensor(),
      transforms.Normalize([0.5], [0.5])])
 # Loader
-kwargs = {'num_workers': 8, 'pin_memory': True} if use_cuda else {}
+kwargs = {'num_workers': 32, 'pin_memory': True} if use_cuda else {}
 
 trainset = torchvision.datasets.MNIST(root=data_dir, train=True,
                                       download=True, transform=transform)
@@ -104,7 +105,7 @@ if os.path.exists(train_path):
     net.load_state_dict(torch.load(train_path))
 else:
     helper.train(testloader, net, trainloader, criterion, optimizer, train_path, epoch=train_epoch, use_cuda=use_cuda,
-                 epoch_step=25, accuracy_accept=100)
+                 epoch_step=25)
     torch.save(net.state_dict(), train_path)
 log.log_file_size(train_path, 'K')
 helper.test(use_cuda, testloader, net)
@@ -116,7 +117,7 @@ for j in range(retrain_num):
     # net.fix_layer(net, fix_mode='conv' if retrain_mode == 'fc' else 'fc')
     # After pruning, the network is retrained with 1/10 of the original network's learning rate
     optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()), lr=lr / 10, weight_decay=1e-5)
-    helper.train(testloader, net, trainloader, criterion, optimizer, retrain_path, accuracy_accept=100, use_cuda=use_cuda,
+    helper.train(testloader, net, trainloader, criterion, optimizer, retrain_path, use_cuda=use_cuda,
                  epoch=retrain_epoch, save_sparse=True)
     print('====================== ReTrain End ======================')
     log.log_file_size(retrain_path, 'K')

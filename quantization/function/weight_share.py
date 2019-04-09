@@ -28,7 +28,7 @@ def share_weight(net, before_path, conv_bits, fc_bits, prune_fc_bits):
         max_weight = max(layer_weight)
         # Use linear initialization for kmeans
         n_clusters = 2 ** bits
-        space = np.linspace(min_weight, max_weight, num=n_clusters)
+        space = np.linspace(min_weight, max_weight, num=n_clusters, dtype=np.float32)
         kmeans = KMeans(n_clusters=n_clusters, init=space.reshape(-1, 1), n_init=1, precompute_distances=True,
                         algorithm="full")
         kmeans.fit(layer_weight.reshape(-1, 1))
