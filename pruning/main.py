@@ -32,8 +32,8 @@ use_cuda = torch.cuda.is_available()
 sensitivity = {
     'conv1': 0.5,
     'conv2': 0.7,
-    'fc1': 0.9,
-    'fc2': 0.8
+    'fc1': 0.95,
+    'fc2': 0.9
 }
 train_batch_size = 16
 test_batch_size = 16

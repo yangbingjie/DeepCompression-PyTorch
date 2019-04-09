@@ -2,6 +2,7 @@ import torch.optim.lr_scheduler as lr_scheduler
 import torch
 import numpy as np
 import time
+import math
 from tqdm import tqdm
 
 
@@ -21,7 +22,7 @@ def load_sparse_model(net, path, bits):
     conv_diff_num = sum(nz_num[:conv_layer_num])
     conv_diff = np.fromfile(fin, dtype=np.uint8, count=conv_diff_num)
 
-    fc_merge_num = int((sum(nz_num[conv_layer_num:]) + 1) / 2)
+    fc_merge_num = math.floor((sum(nz_num[conv_layer_num:]) + 1) / 2)
     fc_merge_diff = np.fromfile(fin, dtype=np.uint8, count=fc_merge_num)
 
     conv_value_array = np.fromfile(fin, dtype=np.float32, count=sum(nz_num[:conv_layer_num]))
@@ -33,13 +34,13 @@ def load_sparse_model(net, path, bits):
     # print(conv_value_array.size, conv_value_array[-10:])
     # print(fc_value_array.size, fc_value_array[-10:])
 
-    # [  292    17  8213    15 77744    65  1081     1]
+    # [  292    17  8213    15 77747    65   818     1]
     # 8537 [3 1 2 0 3 2 0 1 2 4]
-    # 78891 [3 0 0 4 0 3 0 6 0 8]
-    # 8537 [ 0.05499401 -0.05189897 -0.05787534  0.04747369 -0.07086924 -0.07143683
-    #  -0.06042039 -0.06712764 -0.06983159 -0.06923757]
-    # 78891 [ 0.0989112   0.10956419 -0.09654032  0.16033189 -0.19598916 -0.11460709
-    #  -0.3204318  -0.12170401  0.11304317  0.14368518]
+    # 39316 [ 17 242  34  50 164  44  26   3   6 128]
+    # 8537 [ 0.05500366 -0.0518913  -0.05787839  0.04747333 -0.07086759 -0.07142863
+    #  -0.06043605 -0.06711546 -0.0698091  -0.06924898]
+    # 78631 [ 0.13233908  0.16305041 -0.171971   -0.1353672   0.16033891 -0.19598335
+    #  -0.11460102 -0.32042998 -0.12170218  0.14367148]
 
     # Split 8 bits index to 4 bits index
     fc_diff = []
@@ -61,13 +62,13 @@ def load_sparse_model(net, path, bits):
     # print(conv_value_array.size, conv_value_array[-10:])
     # print(fc_value_array.size, fc_value_array[-10:])
 
-    # [  292    17  8213    15 77744    65  1081     1]
+    # [  292    17  8213    15 77747    65   818     1]
     # 8537 [3 1 2 0 3 2 0 1 2 4]
-    # 78891 [19  0  0  2  0  1 16  3  0  4]
-    # 8537 [ 0.05499401 -0.05189897 -0.05787534  0.04747369 -0.07086924 -0.07143683
-    #  -0.06042039 -0.06712764 -0.06983159 -0.06923757]
-    # 78891 [ 0.0989112   0.10956419 -0.09654032  0.16033189 -0.19598916 -0.11460709
-    #  -0.3204318  -0.12170401  0.11304317  0.14368518]
+    # 78631 [ 4  2 12  1 10  0  3  0  6  8]
+    # 8537 [ 0.05500366 -0.0518913  -0.05787839  0.04747333 -0.07086759 -0.07142863
+    #  -0.06043605 -0.06711546 -0.0698091  -0.06924898]
+    # 78631 [ 0.13233908  0.16305041 -0.171971   -0.1353672   0.16033891 -0.19598335
+    #  -0.11460102 -0.32042998 -0.12170218  0.14367148]
 
     return conv_layer_num, nz_num, conv_diff, fc_diff, conv_value_array, fc_value_array
 
@@ -249,8 +250,8 @@ def train_codebook(count_list, use_cuda, max_conv_bit, max_fc_bit, conv_layer_le
 
             train_loss.append(loss.item())
 
-            # # TODO delete
-            # break
+            # TODO delete
+            break
 
         # elapsed = (time.clock() - start)
         # print(epoch, round(elapsed, 5))
@@ -273,39 +274,75 @@ def train_codebook(count_list, use_cuda, max_conv_bit, max_fc_bit, conv_layer_le
 
 def save_codebook(conv_layer_length, nz_num, conv_diff, fc_diff, codebook, path):
     fc_merge_diff = []
-    for i in range(int(len(fc_diff) / 2)):
+
+    # print(nz_num)
+    # print(len(conv_diff), conv_diff[-10:])
+    # print(len(fc_diff), fc_diff[-10:])
+    # [  292    17  8213    15 77747    65   818     1]
+    # 8537 [3 1 2 0 3 2 0 1 2 4]
+    # 78631 [ 4  2 12  1 10  0  3  0  6  8]
+
+    length = len(fc_diff)
+    fc_diff = list(fc_diff)
+    if length % 2 != 0:
+        fc_diff.append(0)
+    for i in range(math.floor(len(fc_diff) / 2)):
         fc_merge_diff.append((fc_diff[2 * i] << 4) | fc_diff[2 * i + 1])
     nz_num = np.asarray(nz_num, dtype=np.uint32)
     conv_diff = np.asarray(conv_diff, dtype=np.uint8)
     fc_merge_diff = np.asarray(fc_merge_diff, dtype=np.uint8)
 
+    conv_half_len = int(conv_layer_length / 2)
     conv_codebook_index = []
-    for m in range(conv_layer_length):
+    for m in range(conv_half_len):
         conv_codebook_index.extend(codebook.codebook_index[m])
 
     fc_codebook_index = []
-    for k in range(conv_layer_length, len(codebook.codebook_index)):
+    for k in range(conv_half_len, len(codebook.codebook_index)):
         fc_codebook_index.extend(codebook.codebook_index[k])
 
     codebook_value = []
     for j in range(len(codebook.codebook_value)):
         codebook_value.extend(codebook.codebook_value[j])
 
+    # print(len(conv_codebook_index), conv_codebook_index[-10:])
+    # print(len(fc_codebook_index), fc_codebook_index[-10:])
+    # print(len(codebook_value), codebook_value[-10:])
+    # 8537 [136, 122, 119, 132, 236, 73, 126, 75, 16, 74]
+    # 78631 [7, 6, 3, 9, 6, 2, 5, 0, 5, 11]
+    # 544 [0.15731171, 0.11615839, -0.00030401052, -0.12842683, 0.12538931, 0.122185014, 0.18652469, 0.19523832, 0.25232622, 0.296758]
     length = len(fc_codebook_index)
     if length % 2 != 0:
         fc_codebook_index.append(0)
+
     fc_codebook_index = np.array(fc_codebook_index, dtype=np.uint8)
     fc_codebook_index_merge = []
-    for i in range(int((len(fc_codebook_index)) / 2)):
-        fc_codebook_index_merge.append((fc_codebook_index[2 * i] << 4) | fc_codebook_index[2 * i + 1])
+    for i in range(math.floor((len(fc_codebook_index)) / 2)):
+        fc_codebook_index_merge.append(
+            (fc_codebook_index[2 * i] << 4) | fc_codebook_index[2 * i + 1])
 
     conv_codebook_index = np.asarray(conv_codebook_index, dtype=np.uint8)
     fc_codebook_index_merge = np.asarray(fc_codebook_index_merge, dtype=np.uint8)
     codebook_value = np.asarray(codebook_value, dtype=np.float32)
 
+    # print(nz_num)
+    # print(len(conv_diff), conv_diff[-10:])
+    # print(len(fc_merge_diff), fc_merge_diff[-10:])
+    # print(len(conv_codebook_index), conv_codebook_index[-10:])
+    # print(len(fc_codebook_index_merge), fc_codebook_index_merge[-10:])
+    # print(len(codebook_value), codebook_value[-10:])
+    # [  292    17  8213    15 77747    65   818     1]
+    # 8537 [3 1 2 0 3 2 0 1 2 4]
+    # 39316 [ 17 242  34  50 164  44  26   3   6 128]
+    # 8537 [136 122 119 132 236  73 126  75  16  74]
+    # 39316 [170 134 100 198 167  99 150  37   5 176]
+    # 544 [ 0.15731171  0.11615839 -0.00030401 -0.12842683  0.12538931  0.12218501
+    #   0.18652469  0.19523832  0.25232622  0.296758  ]
+
     # Set to the same dtype uint8 to save
     nz_num.dtype = np.uint8
     codebook_value.dtype = np.uint8
 
-    sparse_obj = np.concatenate((nz_num, conv_diff, fc_merge_diff, conv_codebook_index, fc_codebook_index_merge, codebook_value))
+    sparse_obj = np.concatenate((nz_num, conv_diff, fc_merge_diff, conv_codebook_index,
+                                 fc_codebook_index_merge, codebook_value))
     sparse_obj.tofile(path)
