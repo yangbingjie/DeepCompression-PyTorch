@@ -30,19 +30,25 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 parallel_gpu = False
 use_cuda = torch.cuda.is_available()
 sensitivity = {
-    'conv1': 0.44,
-    'conv2': 0.7,
-    'fc1': 0.88,
-    'fc2': 0.8
+    'conv1': 0.42,
+    'conv2': 0.66,
+    'fc1': 0.84,
+    'fc2': 0.70
 }
+prune_num_per_retrain = 3
 print(sensitivity)
 train_batch_size = 32
-test_batch_size = 32
+test_batch_size = 64
 lr = 1e-2
 # valid_size = 0.3
-retrain_num = 9
+retrain_mode_list = [
+    {'mode': 'conv', 'prune_num': 5, 'retrain_epoch': 8},
+    {'mode': 'fc', 'prune_num': 3, 'retrain_epoch': 6},
+    {'mode': 'fc', 'prune_num': 2, 'retrain_epoch': 10},
+    {'mode': 'fc', 'prune_num': 2, 'retrain_epoch': 8},
+]
+print(retrain_mode_list)
 train_epoch = 4
-retrain_epoch = 4
 train_path_root = './pruning/result/'
 train_path_name = 'LeNet'
 train_path = train_path_root + train_path_name
@@ -110,15 +116,16 @@ else:
 log.log_file_size(train_path, 'K')
 helper.test(use_cuda, testloader, net)
 
-for j in range(retrain_num):
-    retrain_mode = 'conv' if j % 2 == 0 else 'fc'
-    net.prune_layer(prune_mode=retrain_mode, use_cuda=use_cuda, sensitivity=sensitivity)
-    print('====================== Retrain', retrain_mode, j, 'Start ==================')
+for j in range(len(retrain_mode_list)):
+    retrain_mode = retrain_mode_list[j]['mode']
+    for k in range(retrain_mode_list[j]['prune_num']):
+        net.prune_layer(prune_mode=retrain_mode, use_cuda=use_cuda, sensitivity=sensitivity)
+    print('====================== Retrain', j, retrain_mode, 'Start ==================')
     # net.fix_layer(net, fix_mode='conv' if retrain_mode == 'fc' else 'fc')
     # After pruning, the network is retrained with 1/10 of the original network's learning rate
     optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()), lr=lr / 10, weight_decay=1e-5)
     helper.train(testloader, net, trainloader, criterion, optimizer, retrain_path, use_cuda=use_cuda,
-                 epoch=retrain_epoch, save_sparse=True)
+                 epoch=retrain_mode_list[j]['retrain_epoch'], save_sparse=True)
     print('====================== ReTrain End ======================')
     log.log_file_size(retrain_path, 'K')
 

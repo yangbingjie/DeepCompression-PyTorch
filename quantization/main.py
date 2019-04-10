@@ -25,7 +25,7 @@ train_batch_size = 1
 test_batch_size = 4
 parallel_gpu = False
 loss_accept = 1e-2
-lr = 1e-2
+lr = 1e-4
 prune_fc_bits = 4
 quantization_conv_bits = 8
 quantization_fc_bits = 4
@@ -60,7 +60,7 @@ net = LeNet5()
 max_value = np.finfo(np.float32).max
 max_conv_bit = 2 ** quantization_conv_bits
 max_fc_bit = 2 ** quantization_fc_bits
-index_list, count_list = helper.sparse_to_init(net, conv_layer_length, nz_num, conv_diff, fc_diff, codebook, max_conv_bit, max_fc_bit)
+index_list, count_list, key_parameter = helper.sparse_to_init(net, conv_layer_length, nz_num, conv_diff, fc_diff, codebook, max_conv_bit, max_fc_bit)
 if use_cuda:
     # move param and buffer to GPU
     net.cuda()
@@ -74,9 +74,9 @@ optimizer = optim.SGD(net.parameters(), lr=lr, momentum=0.9, weight_decay=1e-5)
 
 test(use_cuda, testloader, net)
 
-helper.train_codebook(count_list, use_cuda, max_conv_bit, max_fc_bit, conv_layer_length, codebook,
+helper.train_codebook(key_parameter, count_list, use_cuda, max_conv_bit, max_fc_bit, conv_layer_length, codebook,
                       index_list, testloader, net, trainloader, criterion,
-                      optimizer, max_value, retrain_epoch)
+                      optimizer, retrain_epoch)
 
 helper.save_codebook(conv_layer_length, nz_num, conv_diff, fc_diff, codebook, retrain_codebook_path)
 

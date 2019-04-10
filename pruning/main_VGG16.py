@@ -69,6 +69,7 @@ data_dir = './data'
 #     'conv1': 0.5,
 #     'conv': 0.7,
 # }
+prune_num_per_retrain = 5
 
 sensitivity = {
     'conv1': 0.5,
@@ -166,7 +167,7 @@ log.log_file_size(train_path, 'M')
 for j in range(retrain_num):
     retrain_mode = 'conv' if j % 2 == 1 else 'fc'
     # We used five iterations of pruning an retraining
-    for k in range(5):
+    for k in range(prune_num_per_retrain):
         if parallel_gpu:
             net.module.prune_layer(prune_mode=retrain_mode)
         else:

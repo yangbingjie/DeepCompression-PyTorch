@@ -23,9 +23,9 @@ def load_codebook(net, path, conv_bits, fc_bits):
     # print(nz_num)
     # print(len(conv_diff), conv_diff[-10:])
     # print(len(fc_merge_diff), fc_merge_diff[-10:])
-    # [  292    17  8213    15 77747    65   818     1]
-    # 8537 [3 1 2 0 3 2 0 1 2 4]
-    # 39316 [ 17 242  34  50 164  44  26   3   6 128]
+    # [   304     11   5353      1 400000    500   5000     10]
+    # 5669 [ 0  2  0  1  1  1  0  9  8 44]
+    # 202755 [0 0 0 0 0 0 0 0 0 0]
 
     # Split 8 bits index to 4 bits index
     fc_diff = []
@@ -45,10 +45,10 @@ def load_codebook(net, path, conv_bits, fc_bits):
     # print(len(conv_codebook_index), conv_codebook_index[-10:])
     # print(len(fc_codebook_index_merge), fc_codebook_index_merge[-10:])
     # print(len(codebook_value), codebook_value[-10:])
-    # 8537 [136 122 119 132 236  73 126  75  16  74]
-    # 39316 [170 134 100 198 167  99 150  37   5 176]
-    # 544 [ 0.15731171  0.11615839 -0.00030401 -0.12842683  0.12538931  0.12218501
-    #   0.18652469  0.19523832  0.25232622  0.296758  ]
+    # 5669 [  2 228 211 229  76 152  23 116 111  25]
+    # 202755 [200  66  71 152 140 171  86 151  87 197]
+    # 544 [-0.11808116 -0.06328904  0.1446653   0.05191407 -0.03960273 -0.0174285
+    #  -0.0174285   0.00504891  0.22879101  0.05191407]
 
     # Split 8 bits index to 4 bits index
     fc_codebook_index = []
@@ -66,13 +66,13 @@ def load_codebook(net, path, conv_bits, fc_bits):
     # print(len(conv_codebook_index), conv_codebook_index[-10:])
     # print(len(fc_codebook_index), fc_codebook_index[-10:])
     # print(len(codebook_value), codebook_value[-10:])
-    # [  292    17  8213    15 77747    65   818     1]
-    # 8537 [3 1 2 0 3 2 0 1 2 4]
-    # 78631 [4, 2, 12, 1, 10, 0, 3, 0, 6, 8]
-    # 8537 [136 122 119 132 236  73 126  75  16  74]
-    # 78631 [ 7  6  3  9  6  2  5  0  5 11]
-    # 544 [ 0.15731171  0.11615839 -0.00030401 -0.12842683  0.12538931  0.12218501
-    #   0.18652469  0.19523832  0.25232622  0.296758  ]
+    # [   304     11   5353      1 400000    500   5000     10]
+    # 5669 [ 0  2  0  1  1  1  0  9  8 44]
+    # 405510 [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    # 5669 [  2 228 211 229  76 152  23 116 111  25]
+    # 405510 [10 11  5  6  9  7  5  7 12  5]
+    # 544 [-0.11808116 -0.06328904  0.1446653   0.05191407 -0.03960273 -0.0174285
+    #  -0.0174285   0.00504891  0.22879101  0.05191407]
 
     return conv_layer_num, nz_num, conv_diff, fc_diff, conv_codebook_index, fc_codebook_index, codebook_value
 
@@ -113,3 +113,4 @@ def codebook_to_init(net, conv_layer_length, nz_num, conv_diff, fc_diff, conv_co
             sparse_index += 1
             dense_index += 1
         value.reshape(shape)
+

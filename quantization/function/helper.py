@@ -92,7 +92,16 @@ def restructure_index(index_list, conv_layer_length, max_conv_bit, max_fc_bit):
     for k in range(0, len(count_list), 2):
         new_count_list.append(np.sum([count_list[k], count_list[k + 1]], axis=0).tolist())
 
-    return new_index_list, new_count_list
+    key_parameter = []
+    for j in range(int(len(index_list) / 2)):
+        layer_index = np.concatenate((index_list[j], index_list[j + 1]))
+        num = max_conv_bit if j < conv_layer_length else max_fc_bit
+        empty_parameter = [None] * num
+        key_parameter.append(empty_parameter)
+        for m in range(len(layer_index)):
+            if key_parameter[j][layer_index[m]] is None:
+                key_parameter[j][layer_index[m]] = m
+    return new_index_list, new_count_list, key_parameter
 
 
 def sparse_to_init(net, conv_layer_length, nz_num, sparse_conv_diff, sparse_fc_diff, codebook, max_conv_bit,
@@ -134,8 +143,8 @@ def sparse_to_init(net, conv_layer_length, nz_num, sparse_conv_diff, sparse_fc_d
         index.reshape(shape)
         index_list.append(index)
 
-    new_index_list, count_list = restructure_index(index_list, conv_layer_length, max_conv_bit, max_fc_bit)
-    return new_index_list, count_list
+    new_index_list, count_list, key_parameter = restructure_index(index_list, conv_layer_length, max_conv_bit, max_fc_bit)
+    return new_index_list, count_list, key_parameter
 
 
 # def compute_cluster_count(index_list, conv_layer_length, max_conv_bit, max_fc_bit):
@@ -150,12 +159,11 @@ def sparse_to_init(net, conv_layer_length, nz_num, sparse_conv_diff, sparse_fc_d
 #     return cluster_count
 
 
-def update_codebook(count_list, codebook, net, index_list, max_conv_bit, max_fc_bit, conv_layer_length, max_value):
+def cluster_grad(count_list, net, index_list, max_conv_bit, max_fc_bit, conv_layer_length):
     params = list(net.parameters())
     # print('========Start========')
     for i in range(0, len(params), 2):
         # start = time.clock()
-
         param = params[i]
         grad_shape = param.grad.shape
         grad = param.grad
@@ -169,34 +177,24 @@ def update_codebook(count_list, codebook, net, index_list, max_conv_bit, max_fc_
         bias_index = index_list[i + 1]
 
         half_index = int(i / 2)
-        # Cluster grad using index, use mean of each class of grad to update codebook centroids and update weight
-        # Update codebook centroids
-        cluster_bits = max_conv_bit if i < conv_layer_length else max_fc_bit
-        codebook_centroids = codebook.codebook_value[half_index]
-
+        # Cluster grad using index, use mean of each class of grad to update weight
         # elapsed = (time.clock() - start)
         # print(round(elapsed, 5))
         #
         # start = time.clock()
+        cluster_bits = max_conv_bit if i < conv_layer_length else max_fc_bit
         for j in range(cluster_bits):
             sum_grad = grad[index[j]].sum()
 
             sum_grad += bias_grad[bias_index[j]].sum()
+            count = count_list[half_index][j]
+            mean_grad = 0
+            if count != 0:
+                mean_grad = sum_grad / count
 
-            mean_grad = sum_grad / count_list[half_index][j]
-
-            if codebook_centroids[j] + mean_grad < max_value:
-                grad[index[j]] = mean_grad
-                bias_grad[bias_index[j]] = mean_grad
-                codebook_centroids[j] += mean_grad
-            else:
-                # Restrict grad range to avoid nan value
-                squeeze_grad = max_value - float(codebook_centroids[j])
-                grad[index[j]] = squeeze_grad
-                bias_grad[bias_index[j]] = squeeze_grad
-                codebook_centroids[j] = max_value
-
-        # elapsed = (time.clock() - start)
+            grad[index[j]] = mean_grad
+            bias_grad[bias_index[j]] = mean_grad
+            # elapsed = (time.clock() - start)
         # print(round(elapsed, 5))
         #
         # start = time.clock()
@@ -212,15 +210,35 @@ def update_codebook(count_list, codebook, net, index_list, max_conv_bit, max_fc_
     # print('=========End=========')
 
 
-def train_codebook(count_list, use_cuda, max_conv_bit, max_fc_bit, conv_layer_length,
+def update_codebook(net, codebook, conv_layer_length, max_conv_bit, max_fc_bit, key_parameter):
+    params = list(net.parameters())
+    for i in range(0, len(params), 2):
+        # start = time.clock()
+        param = params[i]
+        param = param.view(-1)
+        bias_param = params[i + 1]
+        bias_param = bias_param.view(-1)
+        layer = torch.cat((param, bias_param))
+        half_index = int(i / 2)
+        cluster_bits = max_conv_bit if i < conv_layer_length else max_fc_bit
+        codebook_centroids = codebook.codebook_value[half_index]
+        for j in range(cluster_bits):
+            if key_parameter[half_index][j] is not None:
+                codebook_centroids[j] = layer[key_parameter[half_index][j]]
+
+
+def train_codebook(key_parameter, count_list, use_cuda, max_conv_bit, max_fc_bit, conv_layer_length,
                    codebook, index_list, testloader, net, trainloader, criterion, optimizer,
-                    max_value, epoch=1, epoch_step=25,):
+                   epoch=1, epoch_step=25, ):
     scheduler = lr_scheduler.StepLR(optimizer, step_size=epoch_step, gamma=0.5)
+    # print(list(net.parameters())[1])
+    print('----------------------------')
     # max_accuracy = 0
     for epoch in range(epoch):  # loop over the dataset multiple times
         # start = time.clock()
         train_loss = []
         net.train()
+        i = 1
         for inputs, labels in tqdm(trainloader):
             # get the inputs
             if use_cuda:
@@ -234,14 +252,19 @@ def train_codebook(count_list, use_cuda, max_conv_bit, max_fc_bit, conv_layer_le
             loss = criterion(outputs, labels)  # compute loss
             loss.backward()  # backward
 
-            update_codebook(count_list, codebook, net, index_list, max_conv_bit, max_fc_bit, conv_layer_length, max_value)
+            cluster_grad(count_list, net, index_list, max_conv_bit, max_fc_bit, conv_layer_length)
 
             optimizer.step()  # update weight
 
             train_loss.append(loss.item())
 
             # TODO delete
-            break
+            # break
+            i += 1
+            if i % 10 == 0:
+                test(use_cuda, testloader, net)
+            if i > 20:
+                break
 
         # elapsed = (time.clock() - start)
         # print(epoch, round(elapsed, 5))
@@ -249,8 +272,10 @@ def train_codebook(count_list, use_cuda, max_conv_bit, max_fc_bit, conv_layer_le
 
         mean_train_loss = np.mean(train_loss)
         print("Epoch:", epoch, "Training Loss: %5f" % mean_train_loss)
-        accuracy = test(use_cuda, testloader, net)
+        test(use_cuda, testloader, net)
+        # print(list(net.parameters())[1])
         scheduler.step()
+    update_codebook(net, codebook, conv_layer_length, max_conv_bit, max_fc_bit, key_parameter)
 
 
 def save_codebook(conv_layer_length, nz_num, conv_diff, fc_diff, codebook, path):
@@ -259,9 +284,9 @@ def save_codebook(conv_layer_length, nz_num, conv_diff, fc_diff, codebook, path)
     # print(nz_num)
     # print(len(conv_diff), conv_diff[-10:])
     # print(len(fc_diff), fc_diff[-10:])
-    # [  292    17  8213    15 77747    65   818     1]
-    # 8537 [3 1 2 0 3 2 0 1 2 4]
-    # 78631 [ 4  2 12  1 10  0  3  0  6  8]
+    # [   304     11   5353      1 400000    500   5000     10]
+    # 5669 [ 0  2  0  1  1  1  0  9  8 44]
+    # 405510 [0 0 0 0 0 0 0 0 0 0]
 
     length = len(fc_diff)
     fc_diff = list(fc_diff)
@@ -289,9 +314,10 @@ def save_codebook(conv_layer_length, nz_num, conv_diff, fc_diff, codebook, path)
     # print(len(conv_codebook_index), conv_codebook_index[-10:])
     # print(len(fc_codebook_index), fc_codebook_index[-10:])
     # print(len(codebook_value), codebook_value[-10:])
-    # 8537 [136, 122, 119, 132, 236, 73, 126, 75, 16, 74]
-    # 78631 [7, 6, 3, 9, 6, 2, 5, 0, 5, 11]
-    # 544 [0.15731171, 0.11615839, -0.00030401052, -0.12842683, 0.12538931, 0.122185014, 0.18652469, 0.19523832, 0.25232622, 0.296758]
+    # 5669 [2, 228, 211, 229, 76, 152, 23, 116, 111, 25]
+    # 405510 [10, 11, 5, 6, 9, 7, 5, 7, 12, 5]
+    # 544 [-0.11808116, -0.06328904, 0.1446653, 0.051914066, -0.03960273, -0.017428499, -0.017428499, 0.0050489083, 0.22879101, 0.051914066]
+
     length = len(fc_codebook_index)
     if length % 2 != 0:
         fc_codebook_index.append(0)
@@ -314,13 +340,13 @@ def save_codebook(conv_layer_length, nz_num, conv_diff, fc_diff, codebook, path)
     # print(len(conv_codebook_index), conv_codebook_index[-10:])
     # print(len(fc_codebook_index_merge), fc_codebook_index_merge[-10:])
     # print(len(codebook_value), codebook_value[-10:])
-    # [  292    17  8213    15 77747    65   818     1]
-    # 8537 [3 1 2 0 3 2 0 1 2 4]
-    # 39316 [ 17 242  34  50 164  44  26   3   6 128]
-    # 8537 [136 122 119 132 236  73 126  75  16  74]
-    # 39316 [170 134 100 198 167  99 150  37   5 176]
-    # 544 [ 0.15731171  0.11615839 -0.00030401 -0.12842683  0.12538931  0.12218501
-    #   0.18652469  0.19523832  0.25232622  0.296758  ]
+    # [   304     11   5353      1 400000    500   5000     10]
+    # 5669 [ 0  2  0  1  1  1  0  9  8 44]
+    # 202755 [0 0 0 0 0 0 0 0 0 0]
+    # 5669 [  2 228 211 229  76 152  23 116 111  25]
+    # 202755 [200  66  71 152 140 171  86 151  87 197]
+    # 544 [-0.11808116 -0.06328904  0.1446653   0.05191407 -0.03960273 -0.0174285
+    #  -0.0174285   0.00504891  0.22879101  0.05191407]
 
     # Set to the same dtype uint8 to save
     nz_num.dtype = np.uint8
