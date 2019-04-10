@@ -13,11 +13,13 @@ from pruning.function.helper import test
 import torch.backends.cudnn as cudnn
 import util.log as log
 
-prune_result_path = './pruning/result/LeNet_retrain'
+# TODO delete 'copy' in name
+prune_result_path = './pruning/result/LeNet_retrain_2'
+
 retrain_codebook_root = './quantization/result/'
 if not os.path.exists(retrain_codebook_root):
     os.mkdir(retrain_codebook_root)
-retrain_codebook_name = 'LeNet_codebook'
+retrain_codebook_name = 'LeNet_retrain'
 retrain_epoch = 1
 
 use_cuda = torch.cuda.is_available()
@@ -35,7 +37,8 @@ if not os.path.exists(retrain_codebook_root):
     os.mkdir(retrain_codebook_root)
 
 prune_net = PruneLeNet5()
-conv_layer_length, codebook, nz_num, conv_diff, fc_diff = share_weight(prune_net, prune_result_path, quantization_conv_bits, quantization_fc_bits, prune_fc_bits)
+conv_layer_length, codebook, nz_num, conv_diff, fc_diff = share_weight(
+    prune_net, prune_result_path, quantization_conv_bits, quantization_fc_bits, prune_fc_bits)
 
 transform = transforms.Compose(
     [transforms.ToTensor(),
@@ -60,7 +63,8 @@ net = LeNet5()
 max_value = np.finfo(np.float32).max
 max_conv_bit = 2 ** quantization_conv_bits
 max_fc_bit = 2 ** quantization_fc_bits
-index_list, count_list, key_parameter = helper.sparse_to_init(net, conv_layer_length, nz_num, conv_diff, fc_diff, codebook, max_conv_bit, max_fc_bit)
+index_list, count_list, key_parameter = helper.sparse_to_init(
+    net, conv_layer_length, nz_num, conv_diff, fc_diff, codebook, max_conv_bit, max_fc_bit)
 if use_cuda:
     # move param and buffer to GPU
     net.cuda()

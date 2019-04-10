@@ -2,7 +2,7 @@ import math
 import numpy as np
 
 
-def load_codebook(net, path, conv_bits, fc_bits):
+def load_codebook(net, path, max_conv_bits, max_fc_bits):
     conv_layer_num = 0
     fc_layer_num = 0
     fin = open(path, 'rb')
@@ -28,18 +28,19 @@ def load_codebook(net, path, conv_bits, fc_bits):
     # 202755 [0 0 0 0 0 0 0 0 0 0]
 
     # Split 8 bits index to 4 bits index
+
     fc_diff = []
-    max_bits = 2 ** fc_bits
     for i in range(len(fc_merge_diff)):
-        fc_diff.append(int(fc_merge_diff[i] / max_bits))  # first 4 bits
-        fc_diff.append(fc_merge_diff[i] % max_bits)  # last 4 bits
+        fc_diff.append(int(fc_merge_diff[i] / max_fc_bits))  # first 4 bits
+        fc_diff.append(fc_merge_diff[i] % max_fc_bits)  # last 4 bits
     fc_num_sum = nz_num[conv_layer_num:].sum()
     if fc_num_sum % 2 != 0:
         fc_diff = fc_diff[:fc_num_sum]
+    fc_diff = np.asarray(fc_diff, dtype=np.uint8)
 
     conv_codebook_index = np.fromfile(fin, dtype=np.uint8, count=conv_diff_num)
     fc_codebook_index_merge = np.fromfile(fin, dtype=np.uint8, count=fc_merge_num)
-    codebook_value_num = int((2 ** conv_bits) * (conv_layer_num / 2) + (2 ** fc_bits) * (fc_layer_num / 2))
+    codebook_value_num = int(max_conv_bits * (conv_layer_num / 2) + (2 ** max_fc_bits) * (fc_layer_num / 2))
     codebook_value = np.fromfile(fin, dtype=np.float32, count=codebook_value_num)
 
     # print(len(conv_codebook_index), conv_codebook_index[-10:])
@@ -51,15 +52,14 @@ def load_codebook(net, path, conv_bits, fc_bits):
     #  -0.0174285   0.00504891  0.22879101  0.05191407]
 
     # Split 8 bits index to 4 bits index
+
     fc_codebook_index = []
-    max_bits = 2 ** fc_bits
     for i in range(len(fc_codebook_index_merge)):
-        fc_codebook_index.append(int(fc_codebook_index_merge[i] / max_bits))  # first 4 bits
-        fc_codebook_index.append(fc_codebook_index_merge[i] % max_bits)  # last 4 bits
+        fc_codebook_index.append(int(fc_codebook_index_merge[i] / max_fc_bits))  # first 4 bits
+        fc_codebook_index.append(fc_codebook_index_merge[i] % max_fc_bits)  # last 4 bits
     if fc_num_sum % 2 != 0:
         fc_codebook_index = fc_codebook_index[:fc_num_sum]
     fc_codebook_index = np.asarray(fc_codebook_index, dtype=np.uint8)
-
     # print(nz_num)
     # print(len(conv_diff), conv_diff[-10:])
     # print(len(fc_diff), fc_diff[-10:])
@@ -78,13 +78,12 @@ def load_codebook(net, path, conv_bits, fc_bits):
 
 
 def codebook_to_init(net, conv_layer_length, nz_num, conv_diff, fc_diff, conv_codebook_index, fc_codebook_index,
-                     codebook_value, conv_bits, fc_bits):
+                     codebook_value, max_conv_bits, max_fc_bits):
     state_dict = net.state_dict()
     conv_layer_index = 0
     fc_layer_index = 0
     codebook_value_index = 0
-    max_conv_bits = 2 ** conv_bits
-    max_fc_bits = 2 ** fc_bits
+
     layer_codebook_value = []
     for i, (key, value) in enumerate(state_dict.items()):
         shape = value.shape

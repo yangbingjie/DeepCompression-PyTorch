@@ -30,10 +30,10 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 parallel_gpu = False
 use_cuda = torch.cuda.is_available()
 sensitivity = {
-    'conv1': 0.42,
-    'conv2': 0.66,
-    'fc1': 0.84,
-    'fc2': 0.70
+    'conv1': 0.46,
+    'conv2': 0.68,
+    'fc1': 0.8,
+    'fc2': 0.7
 }
 prune_num_per_retrain = 3
 print(sensitivity)
@@ -41,11 +41,13 @@ train_batch_size = 32
 test_batch_size = 64
 lr = 1e-2
 # valid_size = 0.3
+
 retrain_mode_list = [
-    {'mode': 'conv', 'prune_num': 5, 'retrain_epoch': 8},
-    {'mode': 'fc', 'prune_num': 3, 'retrain_epoch': 6},
-    {'mode': 'fc', 'prune_num': 2, 'retrain_epoch': 10},
-    {'mode': 'fc', 'prune_num': 2, 'retrain_epoch': 8},
+    {'mode': 'conv', 'prune_num': 5, 'retrain_epoch': 10},  # 12
+    {'mode': 'fc', 'prune_num': 4, 'retrain_epoch': 6},  # 8
+    {'mode': 'fc', 'prune_num': 3, 'retrain_epoch': 9},  # 11
+    {'mode': 'fc', 'prune_num': 2, 'retrain_epoch': 6},  # 8
+    {'mode': 'fc', 'prune_num': 1, 'retrain_epoch': 4},  # 8
 ]
 print(retrain_mode_list)
 train_epoch = 4
