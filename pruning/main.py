@@ -43,11 +43,11 @@ lr = 1e-2
 # valid_size = 0.3
 
 retrain_mode_list = [
-    {'mode': 'conv', 'prune_num': 5, 'retrain_epoch': 10},  # 12
-    {'mode': 'fc', 'prune_num': 4, 'retrain_epoch': 6},  # 8
-    {'mode': 'fc', 'prune_num': 3, 'retrain_epoch': 9},  # 11
-    {'mode': 'fc', 'prune_num': 2, 'retrain_epoch': 6},  # 8
-    {'mode': 'fc', 'prune_num': 1, 'retrain_epoch': 4},  # 8
+    {'mode': 'conv', 'prune_num': 5, 'retrain_epoch': 8},
+    {'mode': 'fc', 'prune_num': 4, 'retrain_epoch': 6},
+    {'mode': 'fc', 'prune_num': 4, 'retrain_epoch': 6},
+    {'mode': 'fc', 'prune_num': 3, 'retrain_epoch': 6},
+    {'mode': 'fc', 'prune_num': 2, 'retrain_epoch': 10},
 ]
 print(retrain_mode_list)
 train_epoch = 4

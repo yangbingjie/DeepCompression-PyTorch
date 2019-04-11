@@ -13,13 +13,12 @@ from pruning.function.helper import test
 import torch.backends.cudnn as cudnn
 import util.log as log
 
-# TODO delete 'copy' in name
-prune_result_path = './pruning/result/LeNet_retrain_2'
+prune_result_path = './pruning/result/LeNet_retrain'
 
 retrain_codebook_root = './quantization/result/'
 if not os.path.exists(retrain_codebook_root):
     os.mkdir(retrain_codebook_root)
-retrain_codebook_name = 'LeNet_retrain'
+retrain_codebook_name = 'LeNet_codebook'
 retrain_epoch = 1
 
 use_cuda = torch.cuda.is_available()
@@ -82,6 +81,6 @@ helper.train_codebook(key_parameter, count_list, use_cuda, max_conv_bit, max_fc_
                       index_list, testloader, net, trainloader, criterion,
                       optimizer, retrain_epoch)
 
-helper.save_codebook(conv_layer_length, nz_num, conv_diff, fc_diff, codebook, retrain_codebook_path)
+helper.save_codebook(conv_layer_length, nz_num, conv_diff, fc_diff, codebook, retrain_codebook_path, net)
 
 log.log_file_size(retrain_codebook_path, 'K')

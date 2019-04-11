@@ -84,7 +84,7 @@ def restructure_index(index_list, conv_layer_length, max_conv_bit, max_fc_bit):
         tmp_index = []
         tmp_count = []
         for j in range(num):
-            tmp_index.append(np.where(np.array(index_list[i]) == j)[0].tolist())
+            tmp_index.append(np.where(np.asarray(index_list[i]) == j)[0].tolist())
             tmp_count.append(len(tmp_index[j]))
         new_index_list.append(tmp_index)
         count_list.append(tmp_count)
@@ -144,7 +144,8 @@ def sparse_to_init(net, conv_layer_length, nz_num, sparse_conv_diff, sparse_fc_d
         index.reshape(shape)
         index_list.append(index)
 
-    new_index_list, count_list, key_parameter = restructure_index(index_list, conv_layer_length, max_conv_bit, max_fc_bit)
+    new_index_list, count_list, key_parameter = restructure_index(index_list, conv_layer_length, max_conv_bit,
+                                                                  max_fc_bit)
     return new_index_list, count_list, key_parameter
 
 
@@ -263,9 +264,9 @@ def train_codebook(key_parameter, count_list, use_cuda, max_conv_bit, max_fc_bit
             # TODO delete
             break
             i += 1
-            if i % 10 == 0:
+            if i % 100 == 0:
                 test(use_cuda, testloader, net)
-            if i > 20:
+            if i > 400:
                 break
 
         # elapsed = (time.clock() - start)
@@ -280,7 +281,7 @@ def train_codebook(key_parameter, count_list, use_cuda, max_conv_bit, max_fc_bit
     update_codebook(net, codebook, conv_layer_length, max_conv_bit, max_fc_bit, key_parameter)
 
 
-def save_codebook(conv_layer_length, nz_num, conv_diff, fc_diff, codebook, path):
+def save_codebook(conv_layer_length, nz_num, conv_diff, fc_diff, codebook, path, net):
     fc_merge_diff = []
 
     # print(nz_num)
@@ -341,7 +342,7 @@ def save_codebook(conv_layer_length, nz_num, conv_diff, fc_diff, codebook, path)
     if length % 2 != 0:
         fc_codebook_index.append(0)
 
-    fc_codebook_index = np.array(fc_codebook_index, dtype=np.uint8)
+    fc_codebook_index = np.asarray(fc_codebook_index, dtype=np.uint8)
     fc_codebook_index_merge = []
     for i in range(math.floor((len(fc_codebook_index)) / 2)):
         fc_codebook_index_merge.append(
@@ -351,34 +352,11 @@ def save_codebook(conv_layer_length, nz_num, conv_diff, fc_diff, codebook, path)
     fc_codebook_index_merge = np.asarray(fc_codebook_index_merge, dtype=np.uint8)
     codebook_value = np.asarray(codebook_value, dtype=np.float32)
 
-
-    # TODO delete it
-
-    from encode.function.helper import codebook_to_init
-    from pruning.function.helper import test
-    import torchvision
-    import torchvision.transforms as transforms
-    from quantization.net.LeNet5 import LeNet5
-    transform = transforms.Compose(
-        [transforms.ToTensor(),
-         transforms.Normalize([0.5], [0.5])])
-    net = LeNet5()
-    codebook_to_init(net, conv_layer_length, nz_num, conv_diff, fc_diff, conv_codebook_index, fc_codebook_index,
-                     codebook_value, 256, 16)
-    data_dir = './data'
-    test_batch_size = 32
-    use_cuda = False
-    kwargs = {'num_workers': 16, 'pin_memory': True} if use_cuda else {}
-    testset = torchvision.datasets.MNIST(root=data_dir, train=False,
-                                         download=True, transform=transform)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
-                                             **kwargs)
-    test(use_cuda, testloader, net)
-
-
     # print('===================')
-    #
     # fc_codebook_index1 = []
+    # conv_layer_num = 4
+    # max_fc_bits = 16
+    # fc_num_sum = nz_num[conv_layer_num:].sum()
     # for i in range(len(fc_codebook_index_merge)):
     #     fc_codebook_index1.append(int(fc_codebook_index_merge[i] / max_fc_bits))  # first 4 bits
     #     fc_codebook_index1.append(fc_codebook_index_merge[i] % max_fc_bits)  # last 4 bits
@@ -407,6 +385,33 @@ def save_codebook(conv_layer_length, nz_num, conv_diff, fc_diff, codebook, path)
     #  -0.0174285   0.00504891  0.22879101  0.05191407]
 
     # Set to the same dtype uint8 to save
+    # nz_num2 = nz_num.copy()
+    # TODO delete it
+
+    from encode.function.helper import codebook_to_init, load_codebook
+    from pruning.function.helper import test
+    import torchvision
+    import torchvision.transforms as transforms
+    from quantization.net.LeNet5 import LeNet5
+    transform = transforms.Compose(
+        [transforms.ToTensor(),
+         transforms.Normalize([0.5], [0.5])])
+    net1 = LeNet5()
+    data_dir = './data'
+    test_batch_size = 32
+    use_cuda = False
+    kwargs = {'num_workers': 16, 'pin_memory': True} if use_cuda else {}
+    testset = torchvision.datasets.MNIST(root=data_dir, train=False,
+                                         download=True, transform=transform)
+    testloader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
+                                             **kwargs)
+    nz_num.dtype = np.uint32
+    codebook_value.dtype = np.float32
+    codebook_to_init(net1, conv_layer_length, nz_num, conv_diff, fc_diff, conv_codebook_index, fc_codebook_index,
+                     codebook_value, 256, 16)
+    print('===========')
+    test(use_cuda, testloader, net1)
+
 
     nz_num.dtype = np.uint8
     codebook_value.dtype = np.uint8
@@ -414,3 +419,41 @@ def save_codebook(conv_layer_length, nz_num, conv_diff, fc_diff, codebook, path)
     sparse_obj = np.concatenate((nz_num, conv_diff, fc_merge_diff, conv_codebook_index,
                                  fc_codebook_index_merge, codebook_value))
     sparse_obj.tofile(path)
+
+    # fin = open(path, 'rb')
+    # for name, x in net.named_parameters():
+    #     if name.endswith('mask'):
+    #         continue
+    #     if name.startswith('conv'):
+    #         conv_layer_num += 1
+    #     elif name.startswith('fc'):
+    #         fc_layer_num += 1
+    # nz_num1 = np.fromfile(fin, dtype=np.uint32, count=conv_layer_num + fc_layer_num)
+    # conv_diff_num1 = sum(nz_num1[:conv_layer_num])
+    # conv_diff1 = np.fromfile(fin, dtype=np.uint8, count=conv_diff_num1)
+    #
+    # fc_merge_num1 = math.floor((sum(nz_num1[conv_layer_num:]) + 1) / 2)
+    # fc_merge_diff1 = np.fromfile(fin, dtype=np.uint8, count=fc_merge_num1)
+    # conv_codebook_index1 = np.fromfile(fin, dtype=np.uint8, count=conv_diff_num1)
+    # fc_codebook_index_merge1 = np.fromfile(fin, dtype=np.uint8, count=fc_merge_num1)
+    # codebook_value_num1 = int(max_conv_bits * (conv_layer_num / 2) + (2 ** max_fc_bits) * (fc_layer_num / 2))
+    # codebook_value1 = np.fromfile(fin, dtype=np.float32, count=codebook_value_num1)
+    # for i in range(8):
+    #     if nz_num2[i] != nz_num1[i]:
+    #         print(i, nz_num1[i], nz_num2[i])
+    # for i in range(len(conv_diff1)):
+    #     if conv_diff1[i] != conv_diff[i]:
+    #         print(i, 'conv_diff')
+    # for i in range(len(fc_merge_diff1)):
+    #     if fc_merge_diff1[i] != fc_merge_diff[i]:
+    #         print(i, 'fc_merge_diff')
+    # for i in range(len(conv_codebook_index1)):
+    #     if conv_codebook_index1[i] != conv_codebook_index[i]:
+    #         print(i, 'conv_codebook_index')
+    # for i in range(len(fc_codebook_index_merge1)):
+    #     if fc_codebook_index_merge1[i] != fc_codebook_index_merge[i]:
+    #         print(i, 'fc_codebook_index_merge1')
+    # for i in range(len(codebook_value1)):
+    #     if codebook_value1[i] - codebook_value[i] > 1e-5:
+    #         print(i, 'codebook_value1')
+

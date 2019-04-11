@@ -196,7 +196,7 @@ def save_sparse_model(net, path):
     if length % 2 != 0:
         fc_diff_array.append(0)
 
-    fc_diff_array = np.array(fc_diff_array, dtype=np.uint8)
+    fc_diff_array = np.asarray(fc_diff_array, dtype=np.uint8)
     fc_merge_diff = []
     for i in range(int((len(fc_diff_array)) / 2)):
         fc_merge_diff.append((fc_diff_array[2 * i] << 4) | fc_diff_array[2 * i + 1])
