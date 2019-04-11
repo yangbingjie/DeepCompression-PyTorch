@@ -5,6 +5,7 @@ from pruning.function.helper import test
 import torch
 import torchvision
 import torchvision.transforms as transforms
+import encode.function.encode as encode
 
 use_cuda = torch.cuda.is_available()
 quantization_result_path = './quantization/result/LeNet_codebook'
@@ -35,8 +36,24 @@ net = LeNet5()
 conv_layer_num, nz_num, conv_diff, fc_diff, \
 conv_codebook_index, fc_codebook_index, codebook_value \
     = helper.load_codebook(net, quantization_result_path, max_conv_bits, max_fc_bits)
+
 # Init net using codebook
 helper.codebook_to_init(net, conv_layer_num, nz_num, conv_diff, fc_diff,
                         conv_codebook_index, fc_codebook_index, codebook_value, max_conv_bits, max_fc_bits)
-
 test(use_cuda, testloader, net)
+
+symbol_list = [conv_diff, conv_codebook_index, fc_diff, fc_codebook_index]
+layer_nz_num = nz_num[0::2] + nz_num[1::2]
+half_conv_layer_num = int(conv_layer_num / 2)
+
+for i in range(len(symbol_list)):
+    index = 0
+    layer_nz = layer_nz_num[:half_conv_layer_num] if i < 2 else layer_nz_num[half_conv_layer_num:]
+    for j in range(len(layer_nz)):
+        inputs = symbol_list[i][index:index + layer_nz[j]]
+        symbol_probability = encode.compute_symbol_probability(inputs)
+        huffman_map = encode.encode_huffman(symbol_probability.items())
+        outputs = encode.encode_data(inputs, huffman_map)
+
+        index += layer_nz[j]
+

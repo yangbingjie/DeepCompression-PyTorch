@@ -23,9 +23,8 @@ retrain_epoch = 1
 
 use_cuda = torch.cuda.is_available()
 train_batch_size = 1
-test_batch_size = 4
+test_batch_size = 32
 parallel_gpu = False
-loss_accept = 1e-2
 lr = 1e-4
 prune_fc_bits = 4
 quantization_conv_bits = 8

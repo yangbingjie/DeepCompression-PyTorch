@@ -28,12 +28,12 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
 # device_id = 1
 parallel_gpu = False
-use_cuda = torch.cuda.is_available()
+use_cuda = False  # torch.cuda.is_available()
 sensitivity = {
-    'conv1': 0.46,
-    'conv2': 0.68,
-    'fc1': 0.8,
-    'fc2': 0.7
+    'conv1': 0.45,
+    'conv2': 0.7,
+    'fc1': 0.81,
+    'fc2': 0.71
 }
 prune_num_per_retrain = 3
 print(sensitivity)
@@ -43,11 +43,10 @@ lr = 1e-2
 # valid_size = 0.3
 
 retrain_mode_list = [
-    {'mode': 'conv', 'prune_num': 5, 'retrain_epoch': 8},
-    {'mode': 'fc', 'prune_num': 4, 'retrain_epoch': 6},
-    {'mode': 'fc', 'prune_num': 4, 'retrain_epoch': 6},
+    {'mode': 'conv', 'prune_num': 5, 'retrain_epoch': 12},  # 99.30 %
+    {'mode': 'fc', 'prune_num': 4, 'retrain_epoch': 10},
+    {'mode': 'fc', 'prune_num': 4, 'retrain_epoch': 10},
     {'mode': 'fc', 'prune_num': 3, 'retrain_epoch': 6},
-    {'mode': 'fc', 'prune_num': 2, 'retrain_epoch': 10},
 ]
 print(retrain_mode_list)
 train_epoch = 4
