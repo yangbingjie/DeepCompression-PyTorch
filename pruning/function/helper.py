@@ -202,7 +202,8 @@ def save_sparse_model(net, path):
         fc_merge_diff.append((fc_diff_array[2 * i] << 4) | fc_diff_array[2 * i + 1])
 
     nz_num = np.asarray(nz_num, dtype=np.uint32)
-    print('The parameters are', round(nz_num.sum() / 1024, 2), 'K')
+    layer_nz_num = nz_num[0::2] + nz_num[1::2]
+    print('The parameters are', round(nz_num.sum() / 1024, 2), 'K', layer_nz_num)
     conv_diff_array = np.asarray(conv_diff_array, dtype=np.uint8)
     fc_diff = np.asarray(fc_merge_diff, dtype=np.uint8)
     conv_value_array = np.asarray(conv_value_array, dtype=np.float32)

@@ -101,8 +101,9 @@ class PruneModule(Module):
     # 'not': is not retrain
     # 'conv': retrain conv layer, fix fc layer
     # 'fc': retrain fc layer, fix conv layer
-    def prune_layer(self, sensitivity=None, use_cuda=True, prune_mode='not'):
-        if prune_mode == 'not':
+    def prune_layer(self, sensitivity=None, use_cuda=True, prune_mode='full'):
+        prune_mode_list = ['full', 'conv', 'fc']
+        if prune_mode not in prune_mode_list:
             return
         if sensitivity is None:
             sensitivity = {
@@ -112,7 +113,7 @@ class PruneModule(Module):
             }
         print('===== prune', prune_mode, '=====')
         for name, module in self.named_modules():
-            if name.startswith(prune_mode):
+            if name != '' and (prune_mode == 'full' or name.startswith(prune_mode)):
                 # The pruning threshold is chosen as a quality parameter multiplied
                 # by the standard deviation of a layer's weight
                 if name in sensitivity:

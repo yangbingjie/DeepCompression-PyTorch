@@ -30,10 +30,10 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 parallel_gpu = False
 use_cuda = False  # torch.cuda.is_available()
 sensitivity = {
-    'conv1': 0.45,
-    'conv2': 0.7,
-    'fc1': 0.81,
-    'fc2': 0.71
+    'conv1': 0.4,
+    'conv2': 0.73,
+    'fc1': 0.9,
+    'fc2': 0.7
 }
 prune_num_per_retrain = 3
 print(sensitivity)
@@ -41,12 +41,13 @@ train_batch_size = 32
 test_batch_size = 64
 lr = 1e-2
 # valid_size = 0.3
-
+# 330 3000 32000 950
 retrain_mode_list = [
-    {'mode': 'conv', 'prune_num': 5, 'retrain_epoch': 12},  # 99.30 %
-    {'mode': 'fc', 'prune_num': 4, 'retrain_epoch': 10},
-    {'mode': 'fc', 'prune_num': 4, 'retrain_epoch': 10},
-    {'mode': 'fc', 'prune_num': 3, 'retrain_epoch': 6},
+    {'mode': 'full', 'prune_num': 1, 'retrain_epoch': 8},
+    {'mode': 'full', 'prune_num': 1, 'retrain_epoch': 8},
+    {'mode': 'full', 'prune_num': 1, 'retrain_epoch': 8},
+    {'mode': 'full', 'prune_num': 1, 'retrain_epoch': 8},
+    {'mode': 'full', 'prune_num': 1, 'retrain_epoch': 8}
 ]
 print(retrain_mode_list)
 train_epoch = 4
@@ -122,7 +123,8 @@ for j in range(len(retrain_mode_list)):
     for k in range(retrain_mode_list[j]['prune_num']):
         net.prune_layer(prune_mode=retrain_mode, use_cuda=use_cuda, sensitivity=sensitivity)
     print('====================== Retrain', j, retrain_mode, 'Start ==================')
-    # net.fix_layer(net, fix_mode='conv' if retrain_mode == 'fc' else 'fc')
+    if retrain_mode_list[j]['mode'] != 'full':
+        net.fix_layer(net, fix_mode='conv' if retrain_mode == 'fc' else 'fc')
     # After pruning, the network is retrained with 1/10 of the original network's learning rate
     optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()), lr=lr / 10, weight_decay=1e-5)
     helper.train(testloader, net, trainloader, criterion, optimizer, retrain_path, use_cuda=use_cuda,
