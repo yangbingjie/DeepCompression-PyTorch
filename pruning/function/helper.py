@@ -1,12 +1,51 @@
 import torch
-import numpy as np
-from torch.autograd import Variable
 import time
 import math
+import torchvision
+import numpy as np
+from torch.autograd import Variable
+import torchvision.transforms as transforms
 from scipy.sparse import csr_matrix
 import torch.optim.lr_scheduler as lr_scheduler
 from tqdm import tqdm
 
+
+def load_dataset(use_cuda, train_batch_size, test_batch_size, type='MNIST', data_dir='./data'):
+    trainloader = None
+    testloader = None
+    kwargs = {'num_workers': 32, 'pin_memory': True} if use_cuda else {}
+
+    if type == 'MNIST':
+        transform = transforms.Compose(
+            [transforms.ToTensor(),
+             transforms.Normalize([0.5], [0.5])])
+        # Loader
+
+        trainset = torchvision.datasets.MNIST(root=data_dir, train=True,
+                                              download=True, transform=transform)
+        testset = torchvision.datasets.MNIST(root=data_dir, train=False,
+                                             download=True, transform=transform)
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=train_batch_size,
+                                                  shuffle=True, **kwargs)
+        testloader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
+                                                 **kwargs)
+    elif type == 'CIFAR10':
+        transform = transforms.Compose(
+            [transforms.ToTensor(),
+             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+        kwargs = {'num_workers': 10, 'pin_memory': True} if use_cuda else {}
+
+        trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
+                                                download=True, transform=transform)
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=train_batch_size,
+                                                  shuffle=True, **kwargs)
+
+        testset = torchvision.datasets.CIFAR10(root='./data', train=False,
+                                               download=True, transform=transform)
+        testloader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
+                                                 shuffle=False, **kwargs)
+
+    return trainloader, testloader
 
 def test(use_cuda, testloader, net):
     correct = 0
@@ -41,7 +80,7 @@ def test(use_cuda, testloader, net):
 
 
 def train(testloader, net, trainloader, criterion, optimizer, train_path, save_sparse=False, epoch=1, use_cuda=True,
-        epoch_step=25, auto_save=True):
+          epoch_step=25, auto_save=True):
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1,
     #                                                        patience=1, verbose=True)
     scheduler = lr_scheduler.StepLR(optimizer, step_size=epoch_step, gamma=0.5)
@@ -80,7 +119,6 @@ def train(testloader, net, trainloader, criterion, optimizer, train_path, save_s
                 else:
                     torch.save(net.state_dict(), train_path)
                 max_accuracy = accuracy
-
 
 
 def filler_zero(value, index, max_bits):
@@ -254,5 +292,3 @@ def save_sparse_model(net, path):
 
     sparse_obj = np.concatenate((nz_num, conv_diff_array, fc_diff, conv_value_array, fc_value_array))
     sparse_obj.tofile(path)
-
-

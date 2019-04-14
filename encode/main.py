@@ -59,7 +59,7 @@ for i in range(len(symbol_list)):
         huffman_map_list.append(huffman_map)
         outputs_list.append(encode.encode_data(inputs, huffman_map))
 
-# TODO 保存Huffman编码后的数据结构
+# TODO 保存Huffman编码后的数据outputs_list
 
 nz_num.dtype = np.uint8
 codebook_value.dtype = np.uint8
