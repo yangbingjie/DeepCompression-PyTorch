@@ -9,8 +9,8 @@ from pruning.net.PruneAlexNet import PruneAlexNet
 import pruning.function.helper as helper
 from pruning.net.PruneLeNet5 import PruneLeNet5
 
-net_type = 'LeNet'  # Alexnet VGG16
-data_type = 'MNIST'  # CIFAR10
+net_type = 'VGG16'  # LeNet, Alexnet VGG16
+data_type = 'CIFAR10'  # MNIST CIFAR10
 
 device_id = 1
 os.environ["CUDA_VISIBLE_DEVICES"] = "2"
@@ -69,8 +69,8 @@ retrain_mode_list = {
     ]
 }
 
-retrain_mode = retrain_mode_list[net_type]
-print(retrain_mode)
+retrain_mode_type = retrain_mode_list[net_type]
+print(retrain_mode_type)
 
 learning_rate_decay_list = {
     'LeNet': 1e-5,
@@ -108,7 +108,7 @@ else:
 path_root = './pruning/result/'
 train_path = path_root + net_type
 retrain_path = train_path + '_retrain'
-trainloader, testloader = helper.load_dataset(use_cuda, train_batch_size, test_batch_size, type=data_type)
+trainloader, testloader = helper.load_dataset(use_cuda, train_batch_size, test_batch_size, name=data_type)
 
 if not os.path.exists(path_root):
     os.mkdir(path_root)
@@ -134,17 +134,19 @@ else:
 log.log_file_size(train_path, 'K')
 helper.test(use_cuda, testloader, net)
 
-for j in range(len(retrain_mode_list)):
-    retrain_mode = retrain_mode_list[j]['mode']
-    for k in range(retrain_mode_list[j]['prune_num']):
+for j in range(len(retrain_mode_type)):
+    retrain_mode = retrain_mode_type[j]['mode']
+    for k in range(retrain_mode_type[j]['prune_num']):
         net.prune_layer(prune_mode=retrain_mode, use_cuda=use_cuda, sensitivity=sensitivity)
+    if hasattr(net, 'drop_rate'):
+        net.compute_dropout_rate()
     print('====================== Retrain', j, retrain_mode, 'Start ==================')
-    if retrain_mode_list[j]['mode'] != 'full':
+    if retrain_mode_type[j]['mode'] != 'full':
         net.fix_layer(net, fix_mode='conv' if retrain_mode == 'fc' else 'fc')
     # After pruning, the network is retrained with 1/10 of the original network's learning rate
     optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()), lr=retrain_lr,
                           weight_decay=learning_rate_decay)
     helper.train(testloader, net, trainloader, criterion, optimizer, retrain_path, use_cuda=use_cuda,
-                 epoch=retrain_mode_list[j]['retrain_epoch'], save_sparse=True)
+                 epoch=retrain_mode_type[j]['retrain_epoch'], save_sparse=True)
     print('====================== ReTrain End ======================')
     log.log_file_size(retrain_path, 'K')

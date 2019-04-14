@@ -1,10 +1,34 @@
 import math
 import torch
-import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.modules.module import Module
 
+class DropoutNet():
+    @staticmethod
+    def compute_prune_num(layer, is_bias=False):
+        if is_bias:
+            array = layer.bias_mask.data
+        else:
+            array = layer.weight_mask.data
+        unpruned_num = int(torch.sum(array))
+        total_num = int(torch.numel(array))
+        return unpruned_num, total_num
+
+    def compute_dropout_rate(self):
+        for index in range(len(self.drop_rate)):
+            # Last Layer
+            last_unpruned_num, last_total_num = self.compute_prune_num(self.fc_list[index])
+
+            # Next Layer
+            next_unpruned_num, next_total_num = self.compute_prune_num(self.fc_list[index + 1])
+
+            # If define as
+            # p = 0.5 * math.sqrt(last_not_prune_num * next_not_prune_num / last_total_num * next_total_num)
+            # the result of multiplication maybe overflow
+            p = 0.5 * math.sqrt((last_unpruned_num / last_total_num) * (next_unpruned_num / next_total_num))
+            print('The drop out rate is:', round(p, 5))
+            self.drop_rate[index] = p
 
 class MaskModule(Module):
     def prune(self, threshold, use_cuda=True, bias_threshold=None):
@@ -18,7 +42,7 @@ class MaskModule(Module):
             zero_bias = torch.zeros_like(self.bias.data).float()
             if use_cuda:
                 zero_bias = zero_bias.cuda()
-            new_bias_mask = torch.where(abs(self.bias.data) < threshold, zero_bias, self.bias_mask.float())
+            new_bias_mask = torch.where(abs(self.bias.data) < bias_threshold, zero_bias, self.bias_mask.float())
             self.bias.data = self.bias * new_bias_mask.float()
             self.bias_mask.data = new_bias_mask
 
@@ -43,13 +67,8 @@ class MaskLinearModule(MaskModule):
             return F.linear(input, weight, self.bias * self.bias_mask.float())
         else:
             return F.linear(input, weight)
-        nn.Linear
 
     def reset_parameters(self):
-        # stdv = 1. / math.sqrt(self.weight.size(1))
-        # self.weight.data.uniform_(-stdv, stdv)
-        # if self.bias is not None:
-        #     self.bias.data.uniform_(-stdv, stdv)
         nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
         if self.bias is not None:
             fan_in, _ = nn.init._calculate_fan_in_and_fan_out(self.weight)
@@ -122,13 +141,13 @@ class PruneModule(Module):
                     s = sensitivity['fc']
                 else:
                     s = sensitivity['conv']
+                #  The pruning threshold is chosen
+                # as a quality parameter s multiplied by the standard deviation of a layer’s weights
                 filter_weight = torch.masked_select(module.weight, module.weight_mask.byte())
                 threshold = torch.std(filter_weight) * s
                 filter_bias = torch.masked_select(module.bias, module.bias_mask.byte())
                 bias_threshold = torch.std(filter_bias) * s
-                # print('Pruning layer', name, ' threshold: ', round(threshold, 4))
                 module.prune(threshold, use_cuda, bias_threshold)
-        # print('====== prune end ======')
 
     # fix_mode: fix 'conv' or 'fc'
     # 'not': is not retrain

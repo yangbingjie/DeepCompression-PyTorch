@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import pruning.function.Prune as prune
 
 
-class PruneAlexNet(prune.PruneModule):
+class PruneAlexNet(prune.PruneModule, prune.DropoutNet):
     def __init__(self, num_classes=1000):
         super(PruneAlexNet, self).__init__()
         self.conv1 = prune.MaskConv2Module(3, 96, 11, 4, 0)
@@ -17,6 +17,7 @@ class PruneAlexNet(prune.PruneModule):
         self.fc2 = prune.MaskLinearModule(4096, 4096)
         self.fc3 = prune.MaskLinearModule(4096, num_classes)
         self.drop_rate = [0.5, 0.5]
+        self.fc_list = [self.fc1, self.fc2, self.fc3]
 
     def forward(self, x):
         x = F.relu(self.conv1(x))
@@ -34,38 +35,6 @@ class PruneAlexNet(prune.PruneModule):
         x = nn.functional.dropout(x, p=self.drop_rate[1], training=True, inplace=False)
         x = self.fc3(x)
         return x
-
-    def compute_dropout_rate(self):
-        fc_list = [self.fc1, self.fc2, self.fc3]
-        for index in range(0, 2):
-            # Last Layer
-            last_layer = fc_list[index]
-            last_not_prune_num = 0
-            last_total_num = 0
-            if last_layer.bias is not None:
-                bias_arr = last_layer.bias_mask.data
-                last_not_prune_num = int(torch.sum(bias_arr))
-                last_total_num = int(torch.numel(bias_arr))
-            weight_arr = last_layer.weight_mask.data
-            last_not_prune_num += int(torch.sum(weight_arr))
-            last_total_num += int(torch.numel(weight_arr))
-
-            # Next Layer
-            next_layer = fc_list[index + 1]
-            next_not_prune_num = 0
-            next_total_num = 0
-            if next_layer.bias is not None:
-                bias_arr = next_layer.bias_mask.data
-                next_not_prune_num = int(torch.sum(bias_arr.sum()))
-                next_total_num = int(torch.numel(bias_arr))
-            weight_arr = next_layer.weight_mask.data
-            next_not_prune_num += int(torch.sum(weight_arr))
-            next_total_num += int(torch.numel(weight_arr))
-
-            # p = 0.5 * math.sqrt(last_not_prune_num * next_not_prune_num / last_total_num * next_total_num)
-            p = 0.5 * math.sqrt((last_not_prune_num / last_total_num) * (next_not_prune_num / next_total_num))
-            print('The drop out rate is:', round(p, 5))
-            self.drop_rate[index] = p
 
     def num_flat_features(self, x):
         size = x.size()[1:]
