@@ -1,14 +1,13 @@
 import math
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
 import torch.nn.functional as F
 import pruning.function.Prune as prune
 
 
-class VGG16(prune.PruneModule):
+class PruneVGG16(prune.PruneModule):
     def __init__(self, num_classes=1000, init_weights=True):
-        super(VGG16, self).__init__()
+        super(PruneVGG16, self).__init__()
         self.conv1 = prune.MaskConv2Module(3, 64, kernel_size=3, padding=1)
         self.conv2 = prune.MaskConv2Module(64, 64, kernel_size=3, padding=1)
         self.conv3 = prune.MaskConv2Module(64, 128, kernel_size=3, padding=1)
@@ -136,8 +135,9 @@ class VGG16(prune.PruneModule):
             num_features *= s
         return num_features
 
-# net = VGG16()
-# x = Variable(torch.FloatTensor(16, 3, 40, 40))
-# y = net(x)
-# print(y.data.shape)
-# # torch.Size([16, 1000])
+
+net = PruneVGG16()
+x = torch.FloatTensor(16, 3, 40, 40)
+y = net(x)
+print(y.data.shape)
+# torch.Size([16, 1000])

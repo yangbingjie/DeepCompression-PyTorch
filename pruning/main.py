@@ -3,9 +3,9 @@ import torch
 import torch.nn as nn
 import util.log as log
 import torch.optim as optim
-from pruning.net.VGG16 import VGG16
+from pruning.net.PruneVGG16 import PruneVGG16
 import torch.backends.cudnn as cudnn
-from pruning.net.AlexNet import AlexNet
+from pruning.net.PruneAlexNet import PruneAlexNet
 import pruning.function.helper as helper
 from pruning.net.PruneLeNet5 import PruneLeNet5
 
@@ -91,16 +91,17 @@ test_batch_size = 64
 lr = 1e-2
 retrain_lr_list = {
     'LeNet': lr / 10,
-    'AlexNet': lr / 100
+    'AlexNet': lr / 100,
+    'VGG16': lr / 100
 }
 retrain_lr = retrain_lr_list[net_type]
 
 if net_type == 'LeNet':
     net = PruneLeNet5()
 elif net_type == 'AlexNet':
-    net = AlexNet(num_classes=10)
+    net = PruneAlexNet(num_classes=10)
 elif net_type == 'VGG16':
-    net = VGG16(num_classes=10)
+    net = PruneVGG16(num_classes=10)
 else:
     net = None
 

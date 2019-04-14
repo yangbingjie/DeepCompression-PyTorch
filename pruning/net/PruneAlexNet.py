@@ -5,9 +5,9 @@ import torch.nn.functional as F
 import pruning.function.Prune as prune
 
 
-class AlexNet(prune.PruneModule):
+class PruneAlexNet(prune.PruneModule):
     def __init__(self, num_classes=1000):
-        super(AlexNet, self).__init__()
+        super(PruneAlexNet, self).__init__()
         self.conv1 = prune.MaskConv2Module(3, 96, 11, 4, 0)
         self.conv2 = prune.MaskConv2Module(96, 256, 5, 1, 2)
         self.conv3 = prune.MaskConv2Module(256, 384, 3, 1, 1)
