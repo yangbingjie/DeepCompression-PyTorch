@@ -5,7 +5,23 @@ from quantization.function.netcodebook import NetCodebook
 
 
 def share_weight(net, before_path, conv_bits, fc_bits, prune_fc_bits):
-    conv_layer_length, nz_num, conv_diff, fc_diff, conv_value_array, fc_value_array \
+    '''quantization
+
+    Args:
+        net:            the network object
+        before_path:    the path of the pruned model
+        conv_bits:      the bits of each value in convolutional layer
+        fc_bits:        the bits of each value in full-connect layer        
+        prune_fc_bits:  the bits of each index in full-connect layer
+
+    Returns:
+        conv_layer_num:     the Number of convolutional layers
+        codebook:           he sparse value of each convolutional layers
+        nz_num:             the Number of non-zero value in each layers
+        conv_diff:          the sparse index of each convolutional layers
+        fc_diff:            the sparse index of each full-connect layers
+    '''
+    conv_layer_num, nz_num, conv_diff, fc_diff, conv_value_array, fc_value_array \
         = helper.load_sparse_model(net, before_path, prune_fc_bits)
     conv_index = 0
     fc_index = 0
@@ -14,7 +30,7 @@ def share_weight(net, before_path, conv_bits, fc_bits, prune_fc_bits):
     stride = 2 if have_bias else 1
     layer_nz_num = nz_num[0::stride] + nz_num[1::stride]
     for i in range(len(layer_nz_num)):
-        layer_type = 'conv' if i < conv_layer_length / stride else 'fc'
+        layer_type = 'conv' if i < conv_layer_num / stride else 'fc'
         if layer_type == 'fc':
             bits = fc_bits
             layer_weight = fc_value_array[fc_index:fc_index + layer_nz_num[i]]
@@ -38,4 +54,4 @@ def share_weight(net, before_path, conv_bits, fc_bits, prune_fc_bits):
 
         codebook.add_layer_codebook(codebook_index.reshape(-1), codebook_value.reshape(-1))
 
-    return conv_layer_length, codebook, nz_num, conv_diff, fc_diff
+    return conv_layer_num, codebook, nz_num, conv_diff, fc_diff

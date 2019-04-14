@@ -5,8 +5,22 @@ import math
 from tqdm import tqdm
 from pruning.function.helper import test
 
+def load_sparse_model(net, path, fc_bits):
+    '''load the model which is saved as sparse matrix
 
-def load_sparse_model(net, path, bits):
+    Args:
+        net:  the network object
+        path: the path of the pruned model
+        bits: the bits of each index in fc layer
+
+    Returns:
+        conv_layer_num:     the Number of convolutional layers
+        nz_num:             the Number of non-zero value in each layers
+        conv_diff:          the sparse index of each convolutional layers
+        fc_diff:            the sparse index of each full-connect layers
+        conv_value_array:   the sparse value of each convolutional layers
+        fc_value_array:     the sparse value of each full-connect layers
+    '''
     conv_layer_num = 0
     fc_layer_num = 0
     fin = open(path, 'rb')
@@ -44,10 +58,10 @@ def load_sparse_model(net, path, bits):
 
     # Split 8 bits index to 4 bits index
     fc_diff = []
-    max_bits = 2 ** bits
+    max_bits = (2 ** fc_bits) - 1
     for i in range(len(fc_merge_diff)):
-        fc_diff.append(int(fc_merge_diff[i] / max_bits))  # first 4 bits
-        fc_diff.append(fc_merge_diff[i] % max_bits)  # last 4 bits
+        fc_diff.append(int(fc_merge_diff[i] >> fc_bits))  # first 4 bits
+        fc_diff.append(fc_merge_diff[i] | max_bits)  # last 4 bits
     fc_num_sum = nz_num[conv_layer_num:].sum()
     if fc_num_sum % 2 != 0:
         fc_diff = fc_diff[:fc_num_sum]
@@ -73,13 +87,26 @@ def load_sparse_model(net, path, bits):
     return conv_layer_num, nz_num, conv_diff, fc_diff, conv_value_array, fc_value_array
 
 
-def restructure_index(index_list, conv_layer_length, max_conv_bit, max_fc_bit):
+def restructure_index(index_list, conv_layer_num, max_conv_bit, max_fc_bit):
+    '''load the model which is saved as sparse matrix
+
+    Args:
+        index_list:         the index of the codebook
+        conv_layer_num:     the Number of convolutional layers
+        max_conv_bit:       the bits of each value in convolutional layer
+        max_fc_bit:         the bits of each value in full-connect layer
+
+    Returns:
+        new_index_list:     Contains the index belonging to each value in codebook
+        new_count_list:     Contains the amount of index belonging to each value in codebook
+        key_parameter:      
+    '''
     new_index_list = []
     new_count_list = []
     count_list = []
 
     for i in range(len(index_list)):
-        num = max_conv_bit if i < conv_layer_length else max_fc_bit
+        num = max_conv_bit if i < conv_layer_num else max_fc_bit
         tmp_index = []
         tmp_count = []
         for j in range(num):
@@ -94,7 +121,7 @@ def restructure_index(index_list, conv_layer_length, max_conv_bit, max_fc_bit):
     key_parameter = []
     for j in range(int(len(index_list) / 2)):
         layer_index = np.concatenate((index_list[2 * j], index_list[2 * j + 1]))
-        num = max_conv_bit if j < (conv_layer_length / 2) else max_fc_bit
+        num = max_conv_bit if j < (conv_layer_num / 2) else max_fc_bit
         empty_parameter = [None] * num
         key_parameter.append(empty_parameter)
         for m in range(len(layer_index)):
