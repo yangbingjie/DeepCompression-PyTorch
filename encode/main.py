@@ -7,6 +7,7 @@ import numpy as np
 import torchvision
 import torchvision.transforms as transforms
 import encode.function.encode as encode
+import json
 
 use_cuda = False  # torch.cuda.is_available()
 quantization_result_path = './quantization/result/LeNet_codebook'
@@ -14,7 +15,9 @@ encode_huffman_root = './encode/result/'
 if not os.path.exists(encode_huffman_root):
     os.mkdir(encode_huffman_root)
 encode_huffman_name = 'LeNet_encode'
+encode_huffman_map_name = 'LeNet_huffman_map.json'
 encode_codebook_path = encode_huffman_root + encode_huffman_name
+encode_huffman_map_path = encode_huffman_root + encode_huffman_map_name
 transform = transforms.Compose(
     [transforms.ToTensor(),
      transforms.Normalize([0.5], [0.5])])
@@ -46,8 +49,8 @@ symbol_list = [conv_diff, conv_codebook_index, fc_diff, fc_codebook_index]
 layer_nz_num = nz_num[0::2] + nz_num[1::2]
 half_conv_layer_num = int(conv_layer_num / 2)
 
-huffman_map_list = []
-outputs_list = []
+huffman_map_dict = {}
+outputs_str = ''
 for i in range(len(symbol_list)):
     index = 0
     layer_nz = layer_nz_num[:half_conv_layer_num] if i < 2 else layer_nz_num[half_conv_layer_num:]
@@ -56,12 +59,18 @@ for i in range(len(symbol_list)):
         index += layer_nz[j]
         symbol_probability = encode.compute_symbol_probability(inputs)
         huffman_map = encode.encode_huffman(symbol_probability.items())
-        huffman_map_list.append(huffman_map)
-        outputs_list.append(encode.encode_data(inputs, huffman_map))
+        huffman_map_dict[str(i)+'_'+str(j)] = huffman_map
+        outputs_str += encode.encode_data(inputs, huffman_map)
 
-# TODO 保存Huffman编码后的数据outputs_list
+outputs_str += '0' * (8 - (len(outputs_str) & 0x7))
+outputs_arr = np.zeros(len(outputs_str) >> 3，dtype=np.uint8)
+for i in range(len(outputs_str) >> 3):
+    outputs_arr[i] = int(outputs_str[i<<3: i<<3 + 8],2)
 
 nz_num.dtype = np.uint8
 codebook_value.dtype = np.uint8
-save_obj = np.concatenate((nz_num, codebook_value))
+save_obj = np.concatenate((nz_num, codebook_value,outputs_arr))
 save_obj.tofile(encode_codebook_path)
+
+with open(encode_huffman_map_path,'w') as file:
+    json.dump(huffman_map_dict,file)
