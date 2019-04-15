@@ -22,6 +22,7 @@ train_epoch_list = {
     'VGG16': 150,
 }
 train_epoch = train_epoch_list[net_type]
+# Prune sensitivity
 sensitivity_list = {
     'LeNet': {
         'conv1': 0.4,
@@ -59,13 +60,13 @@ retrain_mode_list = {
         {'mode': 'fc', 'prune_num': 1, 'retrain_epoch': 8}
     ],
     'VGG16': [
-        {'mode': 'conv', 'prune_num': 1, 'retrain_epoch': 8},
-        {'mode': 'conv', 'prune_num': 1, 'retrain_epoch': 8},
-        {'mode': 'conv', 'prune_num': 1, 'retrain_epoch': 8},
-        {'mode': 'fc', 'prune_num': 1, 'retrain_epoch': 8},
-        {'mode': 'fc', 'prune_num': 1, 'retrain_epoch': 8},
-        {'mode': 'fc', 'prune_num': 1, 'retrain_epoch': 8},
-        {'mode': 'fc', 'prune_num': 1, 'retrain_epoch': 8}
+        {'mode': 'conv', 'prune_num': 5, 'retrain_epoch': 8},
+        {'mode': 'conv', 'prune_num': 5, 'retrain_epoch': 8},
+        {'mode': 'conv', 'prune_num': 5, 'retrain_epoch': 8},
+        {'mode': 'fc', 'prune_num': 5, 'retrain_epoch': 8},
+        {'mode': 'fc', 'prune_num': 5, 'retrain_epoch': 8},
+        {'mode': 'fc', 'prune_num': 5, 'retrain_epoch': 8},
+        {'mode': 'fc', 'prune_num': 5, 'retrain_epoch': 8}
     ]
 }
 
@@ -75,20 +76,25 @@ print(retrain_mode_type)
 learning_rate_decay_list = {
     'LeNet': 1e-5,
     'AlexNet': 1e-5,
-    'VGG16': 0.0005
+    'VGG16': 5e-4
 }
 learning_rate_decay = learning_rate_decay_list[net_type]
 prune_num_per_retrain = 3
 train_batch_size_list = {
     'LeNet': 32,
     'AlexNet': 64,
-    'VGG16': 256
+    'VGG16': 128
 }
 train_batch_size = train_batch_size_list[net_type]
 
 test_batch_size = 64
 
-lr = 1e-2
+lr_list = {
+    'LeNet': 1e-2,
+    'AlexNet': 1e-2,
+    'VGG16': 1e-2
+}
+lr = lr_list[net_type]
 retrain_lr_list = {
     'LeNet': lr / 10,
     'AlexNet': lr / 100,
@@ -108,7 +114,13 @@ else:
 path_root = './pruning/result/'
 train_path = path_root + net_type
 retrain_path = train_path + '_retrain'
-trainloader, testloader = helper.load_dataset(use_cuda, train_batch_size, test_batch_size, name=data_type)
+num_workers_list = {
+    'LeNet': 16,
+    'AlexNet': 16,
+    'VGG16': 32
+}
+num_workers = num_workers_list[net_type]
+trainloader, testloader = helper.load_dataset(use_cuda, train_batch_size, test_batch_size, num_workers, name=data_type)
 
 if not os.path.exists(path_root):
     os.mkdir(path_root)
@@ -126,7 +138,7 @@ if os.path.exists(train_path):
     net.load_state_dict(torch.load(train_path))
 else:
     helper.train(testloader, net, trainloader, criterion, optimizer, train_path,
-                 epoch=train_epoch, use_cuda=use_cuda, epoch_step=25)
+                 epoch=train_epoch, use_cuda=use_cuda)
     torch.save(net.state_dict(), train_path)
 log.log_file_size(train_path, 'K')
 helper.test(use_cuda, testloader, net)

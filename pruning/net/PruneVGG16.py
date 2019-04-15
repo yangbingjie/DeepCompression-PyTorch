@@ -62,9 +62,6 @@ class PruneVGG16(prune.PruneModule):
             if isinstance(m, prune.MaskConv2Module):
                 n = m.kernel_size * m.kernel_size * m.out_channels
                 m.weight.data.normal_(0, math.sqrt(2. / n))
-            elif isinstance(m, nn.BatchNorm2d):
-                m.weight.data.fill_(1)
-                m.bias.data.zero_()
             elif isinstance(m, nn.Linear):
                 nn.init.normal_(m.weight, 0, 0.01)
                 nn.init.constant_(m.bias, 0)

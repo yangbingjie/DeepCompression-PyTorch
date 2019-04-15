@@ -8,12 +8,11 @@ import torchvision.transforms as transforms
 import torch.optim.lr_scheduler as lr_scheduler
 
 
-def load_dataset(use_cuda, train_batch_size, test_batch_size, name='MNIST', data_dir='./data'):
+def load_dataset(use_cuda, train_batch_size, test_batch_size, num_workers, name='MNIST', data_dir='./data'):
     trainloader = None
     testloader = None
-    kwargs = {'num_workers': 32, 'pin_memory': True} if use_cuda else {}
-
     if name == 'MNIST':
+        kwargs = {'num_workers': num_workers, 'pin_memory': True} if use_cuda else {}
         transform = transforms.Compose(
             [transforms.ToTensor(),
              transforms.Normalize([0.5], [0.5])])
@@ -26,15 +25,23 @@ def load_dataset(use_cuda, train_batch_size, test_batch_size, name='MNIST', data
         testloader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
                                                  **kwargs)
     elif name == 'CIFAR10':
-        transform = transforms.Compose(
-            [transforms.ToTensor(),
-             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+        kwargs = {'num_workers': num_workers, 'pin_memory': True} if use_cuda else {}
+        transform_train = transforms.Compose([
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+        ])
+        transform_test = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+        ])
         trainset = torchvision.datasets.CIFAR10(root=data_dir, train=True,
-                                                download=True, transform=transform)
+                                                download=True, transform=transform_train)
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=train_batch_size,
                                                   shuffle=True, **kwargs)
         testset = torchvision.datasets.CIFAR10(root=data_dir, train=False,
-                                               download=True, transform=transform)
+                                               download=True, transform=transform_test)
         testloader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
                                                  shuffle=False, **kwargs)
 
@@ -61,11 +68,9 @@ def test(use_cuda, testloader, net):
     return accuracy
 
 
-def train(testloader, net, trainloader, criterion, optimizer, train_path, save_sparse=False, epoch=1, use_cuda=True,
-          epoch_step=25, auto_save=True):
-    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1,
-    #                                                        patience=1, verbose=True)
-    scheduler = lr_scheduler.StepLR(optimizer, step_size=epoch_step, gamma=0.5)
+def train(testloader, net, trainloader, criterion, optimizer, train_path, save_sparse=False,
+          epoch=1, use_cuda=True, auto_save=True):
+    scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[100, 180], gamma=0.1)
     max_accuracy = 0
 
     for epoch in range(epoch):  # loop over the dataset multiple times
@@ -102,7 +107,7 @@ def train(testloader, net, trainloader, criterion, optimizer, train_path, save_s
                     torch.save(net.state_dict(), train_path)
                 max_accuracy = accuracy
 
-
+#
 def filler_zero(value, index, max_bits):
     last_index = -1
     i = 0
@@ -122,6 +127,7 @@ def filler_zero(value, index, max_bits):
             index[i] = diff
             i += 1
     return value, index
+
 
 def save_sparse_model(net, path):
     nz_num = []

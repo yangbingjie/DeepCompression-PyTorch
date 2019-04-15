@@ -10,6 +10,7 @@ class MaskModule(Module):
         zero_weight = torch.zeros_like(self.weight.data).float()
         if use_cuda:
             zero_weight = zero_weight.cuda()
+        # Set the weight less than threshold to zero
         new_weight_mask = torch.where(abs(self.weight.data) < threshold, zero_weight, self.weight_mask.float())
         self.weight.data = self.weight * new_weight_mask.float()
         self.weight_mask.data = new_weight_mask
@@ -17,6 +18,7 @@ class MaskModule(Module):
             zero_bias = torch.zeros_like(self.bias.data).float()
             if use_cuda:
                 zero_bias = zero_bias.cuda()
+            # Set the bias less than bias_threshold to zero
             new_bias_mask = torch.where(abs(self.bias.data) < bias_threshold, zero_bias, self.bias_mask.float())
             self.bias.data = self.bias * new_bias_mask.float()
             self.bias_mask.data = new_bias_mask
@@ -28,9 +30,11 @@ class MaskLinearModule(MaskModule):
         self.in_features = in_features
         self.out_features = out_features
         self.weight = nn.Parameter(torch.Tensor(out_features, in_features), requires_grad=True)
+        # Add mask for weight
         self.weight_mask = nn.Parameter(torch.ones(self.weight.shape).byte(), requires_grad=False)
         if bias:
             self.bias = nn.Parameter(torch.Tensor(out_features), requires_grad=True)
+            # Add mask for bias
             self.bias_mask = nn.Parameter(torch.ones(out_features).byte(), requires_grad=False)
         else:
             self.register_parameter('bias', None)
@@ -64,9 +68,11 @@ class MaskConv2Module(MaskModule):
         self.groups = groups
         self.weight = nn.Parameter(torch.Tensor(out_channels, in_channels // groups, *(kernel_size, kernel_size)),
                                    requires_grad=True)
+        # Add mask for weight
         self.weight_mask = nn.Parameter(torch.ones(self.weight.shape).byte(), requires_grad=False)
         if bias:
             self.bias = nn.Parameter(torch.Tensor(out_channels), requires_grad=True)
+            # Add mask for bias
             self.bias_mask = nn.Parameter(torch.ones(out_channels).byte(), requires_grad=False)
         else:
             self.register_parameter('bias', None)
