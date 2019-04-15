@@ -3,23 +3,23 @@ import torch
 import torch.nn as nn
 import util.log as log
 import torch.optim as optim
-from pruning.net.PruneVGG16 import PruneVGG16
 import torch.backends.cudnn as cudnn
-from pruning.net.PruneAlexNet import PruneAlexNet
 import pruning.function.helper as helper
+from pruning.net.PruneVGG16 import PruneVGG16
 from pruning.net.PruneLeNet5 import PruneLeNet5
+from pruning.net.PruneAlexNet import PruneAlexNet
 
 net_type = 'VGG16'  # LeNet, Alexnet VGG16
 data_type = 'CIFAR10'  # MNIST CIFAR10
 
-device_id = 1
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
-parallel_gpu = False
+# os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 use_cuda = torch.cuda.is_available()
+if use_cuda:
+    print('Using CUDA')
 train_epoch_list = {
     'LeNet': 4,
     'AlexNet': 100,
-    'VGG16': 200,
+    'VGG16': 150,
 }
 train_epoch = train_epoch_list[net_type]
 sensitivity_list = {
@@ -82,7 +82,7 @@ prune_num_per_retrain = 3
 train_batch_size_list = {
     'LeNet': 32,
     'AlexNet': 64,
-    'VGG16': 128
+    'VGG16': 256
 }
 train_batch_size = train_batch_size_list[net_type]
 
@@ -117,10 +117,7 @@ optimizer = optim.SGD(net.parameters(), lr=lr, momentum=0.9, weight_decay=learni
 
 if use_cuda:
     # move param and buffer to GPU
-    net.cuda()
-    if parallel_gpu:
-        # parallel use GPU
-        net = torch.nn.DataParallel(net, device_ids=range(torch.cuda.device_count() - 1))
+    net = net.cuda()
     # speed up slightly
     cudnn.benchmark = True
 
@@ -135,6 +132,7 @@ log.log_file_size(train_path, 'K')
 helper.test(use_cuda, testloader, net)
 
 for j in range(len(retrain_mode_type)):
+    print(retrain_mode_type[j]['mode'])
     retrain_mode = retrain_mode_type[j]['mode']
     for k in range(retrain_mode_type[j]['prune_num']):
         net.prune_layer(prune_mode=retrain_mode, use_cuda=use_cuda, sensitivity=sensitivity)

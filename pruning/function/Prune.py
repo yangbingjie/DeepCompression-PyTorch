@@ -4,31 +4,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.modules.module import Module
 
-class DropoutNet():
-    @staticmethod
-    def compute_prune_num(layer, is_bias=False):
-        if is_bias:
-            array = layer.bias_mask.data
-        else:
-            array = layer.weight_mask.data
-        unpruned_num = int(torch.sum(array))
-        total_num = int(torch.numel(array))
-        return unpruned_num, total_num
-
-    def compute_dropout_rate(self):
-        for index in range(len(self.drop_rate)):
-            # Last Layer
-            last_unpruned_num, last_total_num = self.compute_prune_num(self.fc_list[index])
-
-            # Next Layer
-            next_unpruned_num, next_total_num = self.compute_prune_num(self.fc_list[index + 1])
-
-            # If define as
-            # p = 0.5 * math.sqrt(last_not_prune_num * next_not_prune_num / last_total_num * next_total_num)
-            # the result of multiplication maybe overflow
-            p = 0.5 * math.sqrt((last_unpruned_num / last_total_num) * (next_unpruned_num / next_total_num))
-            print('The drop out rate is:', round(p, 5))
-            self.drop_rate[index] = p
 
 class MaskModule(Module):
     def prune(self, threshold, use_cuda=True, bias_threshold=None):
@@ -116,6 +91,31 @@ class MaskConv2Module(MaskModule):
 
 
 class PruneModule(Module):
+    @staticmethod
+    def compute_prune_num(layer, is_bias=False):
+        if is_bias:
+            array = layer.bias_mask.data
+        else:
+            array = layer.weight_mask.data
+        unpruned_num = int(torch.sum(array))
+        total_num = int(torch.numel(array))
+        return unpruned_num, total_num
+
+    def compute_dropout_rate(self):
+        for index in range(len(self.drop_rate)):
+            # Last Layer
+            last_unpruned_num, last_total_num = self.compute_prune_num(self.fc_list[index])
+
+            # Next Layer
+            next_unpruned_num, next_total_num = self.compute_prune_num(self.fc_list[index + 1])
+
+            # If define as
+            # p = 0.5 * math.sqrt(last_not_prune_num * next_not_prune_num / last_total_num * next_total_num)
+            # the result of multiplication maybe overflow
+            p = 0.5 * math.sqrt((last_unpruned_num / last_total_num) * (next_unpruned_num / next_total_num))
+            print('The drop out rate is:', round(p, 5))
+            self.drop_rate[index] = p
+
     # prune_mode: prune 'conv' or prune 'fc'
     # 'not': is not retrain
     # 'conv': retrain conv layer, fix fc layer

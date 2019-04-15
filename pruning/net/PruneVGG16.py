@@ -1,5 +1,4 @@
 import math
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pruning.function.Prune as prune
@@ -12,13 +11,13 @@ cfg = {
 }
 
 
-class PruneVGG16(prune.PruneModule, prune.DropoutNet):
+class PruneVGG16(prune.PruneModule):
     def __init__(self, num_classes=1000, init_weights=True):
         super(PruneVGG16, self).__init__()
         kernel_size = 3
         padding = 1
         in_channels = 3
-        names = self.__dict__
+        names = self.__dict__['_modules']
         vgg16_cfg = cfg['D']
         i = 0
         for layer in vgg16_cfg:
@@ -37,7 +36,7 @@ class PruneVGG16(prune.PruneModule, prune.DropoutNet):
 
     def forward(self, x):
         vgg16_cfg = cfg['D']
-        names = self.__dict__
+        names = self.__dict__['_modules']
         i = 0
         for layer in vgg16_cfg:
             if layer == 'M':

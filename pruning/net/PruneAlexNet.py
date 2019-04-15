@@ -1,11 +1,9 @@
-import math
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pruning.function.Prune as prune
 
 
-class PruneAlexNet(prune.PruneModule, prune.DropoutNet):
+class PruneAlexNet(prune.PruneModule):
     def __init__(self, num_classes=1000):
         super(PruneAlexNet, self).__init__()
         self.conv1 = prune.MaskConv2Module(3, 96, 11, 4, 0)

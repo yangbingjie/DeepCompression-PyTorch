@@ -1,13 +1,11 @@
-import torch
-import time
 import math
+import torch
 import torchvision
 import numpy as np
-from torch.autograd import Variable
-import torchvision.transforms as transforms
-from scipy.sparse import csr_matrix
-import torch.optim.lr_scheduler as lr_scheduler
 from tqdm import tqdm
+from scipy.sparse import csr_matrix
+import torchvision.transforms as transforms
+import torch.optim.lr_scheduler as lr_scheduler
 
 
 def load_dataset(use_cuda, train_batch_size, test_batch_size, name='MNIST', data_dir='./data'):
@@ -31,7 +29,6 @@ def load_dataset(use_cuda, train_batch_size, test_batch_size, name='MNIST', data
         transform = transforms.Compose(
             [transforms.ToTensor(),
              transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-        kwargs = {'num_workers': 10, 'pin_memory': True} if use_cuda else {}
         trainset = torchvision.datasets.CIFAR10(root=data_dir, train=True,
                                                 download=True, transform=transform)
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=train_batch_size,
