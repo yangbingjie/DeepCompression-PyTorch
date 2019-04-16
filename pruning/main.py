@@ -7,6 +7,7 @@ import torch.backends.cudnn as cudnn
 import pruning.function.helper as helper
 from pruning.net.PruneVGG16 import PruneVGG16
 from pruning.net.PruneLeNet5 import PruneLeNet5
+import torch.optim.lr_scheduler as lr_scheduler
 from pruning.net.PruneAlexNet import PruneAlexNet
 
 net_type = 'VGG16'  # LeNet, Alexnet VGG16
@@ -19,7 +20,7 @@ if use_cuda:
 train_epoch_list = {
     'LeNet': 4,
     'AlexNet': 100,
-    'VGG16': 150,
+    'VGG16': 200,
 }
 train_epoch = train_epoch_list[net_type]
 # Prune sensitivity
@@ -37,36 +38,34 @@ sensitivity_list = {
     },
     'VGG16': {
         'conv1': 0.5,
-        'conv2': 0.6,
-        'conv5': 0.7,
-        'fc1': 0.99,
         'conv': 0.8,
-        'fc': 0.95,
+        'fc': 0.9,
     }
 }
 sensitivity = sensitivity_list[net_type]
 print(sensitivity)
-
+# When accuracy in test dataset is more than max_accuracy, save the model
+max_accuracy = 80
 # LeNet: 330 3000 32000 950
 retrain_mode_list = {
     'LeNet': [{'mode': 'full', 'prune_num': 1, 'retrain_epoch': 8}] * 5,
     'AlexNet': [
-        {'mode': 'conv', 'prune_num': 1, 'retrain_epoch': 8},
-        {'mode': 'conv', 'prune_num': 1, 'retrain_epoch': 8},
-        {'mode': 'conv', 'prune_num': 1, 'retrain_epoch': 8},
-        {'mode': 'fc', 'prune_num': 1, 'retrain_epoch': 8},
-        {'mode': 'fc', 'prune_num': 1, 'retrain_epoch': 8},
-        {'mode': 'fc', 'prune_num': 1, 'retrain_epoch': 8},
-        {'mode': 'fc', 'prune_num': 1, 'retrain_epoch': 8}
+        {'mode': 'conv', 'prune_num': 1, 'retrain_epoch': 20},
+        {'mode': 'conv', 'prune_num': 1, 'retrain_epoch': 20},
+        {'mode': 'conv', 'prune_num': 1, 'retrain_epoch': 20},
+        {'mode': 'fc', 'prune_num': 1, 'retrain_epoch': 20},
+        {'mode': 'fc', 'prune_num': 1, 'retrain_epoch': 20},
+        {'mode': 'fc', 'prune_num': 1, 'retrain_epoch': 20},
+        {'mode': 'fc', 'prune_num': 1, 'retrain_epoch': 20}
     ],
     'VGG16': [
-        {'mode': 'conv', 'prune_num': 5, 'retrain_epoch': 8},
-        {'mode': 'conv', 'prune_num': 5, 'retrain_epoch': 8},
-        {'mode': 'conv', 'prune_num': 5, 'retrain_epoch': 8},
-        {'mode': 'fc', 'prune_num': 5, 'retrain_epoch': 8},
-        {'mode': 'fc', 'prune_num': 5, 'retrain_epoch': 8},
-        {'mode': 'fc', 'prune_num': 5, 'retrain_epoch': 8},
-        {'mode': 'fc', 'prune_num': 5, 'retrain_epoch': 8}
+        {'mode': 'fc', 'prune_num': 5, 'retrain_epoch': 1},
+        {'mode': 'fc', 'prune_num': 5, 'retrain_epoch': 1},
+        {'mode': 'fc', 'prune_num': 5, 'retrain_epoch': 1},
+        {'mode': 'fc', 'prune_num': 5, 'retrain_epoch': 1},
+        {'mode': 'conv', 'prune_num': 5, 'retrain_epoch': 1},
+        {'mode': 'conv', 'prune_num': 5, 'retrain_epoch': 1},
+        {'mode': 'conv', 'prune_num': 5, 'retrain_epoch': 1},
     ]
 }
 
@@ -95,6 +94,9 @@ lr_list = {
     'VGG16': 1e-2
 }
 lr = lr_list[net_type]
+
+# After pruning, the LeNet is retrained with 1/10 of the original network's learning rate
+# After pruning, the AlexNet is retrained with 1/100 of the original network's learning rate
 retrain_lr_list = {
     'LeNet': lr / 10,
     'AlexNet': lr / 100,
@@ -126,6 +128,7 @@ if not os.path.exists(path_root):
     os.mkdir(path_root)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=lr, momentum=0.9, weight_decay=learning_rate_decay)
+scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[100, 180], gamma=0.1)
 
 if use_cuda:
     # move param and buffer to GPU
@@ -137,14 +140,21 @@ if use_cuda:
 if os.path.exists(train_path):
     net.load_state_dict(torch.load(train_path))
 else:
-    helper.train(testloader, net, trainloader, criterion, optimizer, train_path,
+    helper.train(testloader, net, trainloader, criterion, optimizer, train_path, scheduler, max_accuracy,
                  epoch=train_epoch, use_cuda=use_cuda)
     torch.save(net.state_dict(), train_path)
-log.log_file_size(train_path, 'K')
+if net_type == 'LeNet':
+    unit = 'K'
+else:
+    unit = 'M'
+log.log_file_size(train_path, unit)
 helper.test(use_cuda, testloader, net)
 
+# Retrain
+optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()), lr=retrain_lr,
+                      weight_decay=learning_rate_decay)
+scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[80, 100], gamma=0.1)
 for j in range(len(retrain_mode_type)):
-    print(retrain_mode_type[j]['mode'])
     retrain_mode = retrain_mode_type[j]['mode']
     for k in range(retrain_mode_type[j]['prune_num']):
         net.prune_layer(prune_mode=retrain_mode, use_cuda=use_cuda, sensitivity=sensitivity)
@@ -153,10 +163,9 @@ for j in range(len(retrain_mode_type)):
     print('====================== Retrain', j, retrain_mode, 'Start ==================')
     if retrain_mode_type[j]['mode'] != 'full':
         net.fix_layer(net, fix_mode='conv' if retrain_mode == 'fc' else 'fc')
-    # After pruning, the network is retrained with 1/10 of the original network's learning rate
-    optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()), lr=retrain_lr,
-                          weight_decay=learning_rate_decay)
-    helper.train(testloader, net, trainloader, criterion, optimizer, retrain_path, use_cuda=use_cuda,
-                 epoch=retrain_mode_type[j]['retrain_epoch'], save_sparse=True)
+    helper.train(testloader, net, trainloader, criterion, optimizer, retrain_path, scheduler, max_accuracy, unit,
+                 use_cuda=use_cuda, epoch=retrain_mode_type[j]['retrain_epoch'], auto_save=False)
     print('====================== ReTrain End ======================')
-    log.log_file_size(retrain_path, 'K')
+
+helper.save_sparse_model(net, retrain_path, unit)
+log.log_file_size(retrain_path, unit)

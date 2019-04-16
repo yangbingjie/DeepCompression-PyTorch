@@ -1,11 +1,11 @@
 import math
+import time
 import torch
 import torchvision
 import numpy as np
 from tqdm import tqdm
 from scipy.sparse import csr_matrix
 import torchvision.transforms as transforms
-import torch.optim.lr_scheduler as lr_scheduler
 
 
 def load_dataset(use_cuda, train_batch_size, test_batch_size, num_workers, name='MNIST', data_dir='./data'):
@@ -68,11 +68,9 @@ def test(use_cuda, testloader, net):
     return accuracy
 
 
-def train(testloader, net, trainloader, criterion, optimizer, train_path, save_sparse=False,
+def train(testloader, net, trainloader, criterion, optimizer, train_path, scheduler, max_accuracy, unit='K',
+          save_sparse=False,
           epoch=1, use_cuda=True, auto_save=True):
-    scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[100, 180], gamma=0.1)
-    max_accuracy = 0
-
     for epoch in range(epoch):  # loop over the dataset multiple times
         # adjust_learning_rate(optimizer, epoch)
         train_loss = []
@@ -102,34 +100,108 @@ def train(testloader, net, trainloader, criterion, optimizer, train_path, save_s
             scheduler.step()
             if auto_save and accuracy > max_accuracy:
                 if save_sparse:
-                    save_sparse_model(net, train_path)
+                    save_sparse_model(net, train_path, unit)
                 else:
                     torch.save(net.state_dict(), train_path)
                 max_accuracy = accuracy
 
-#
+
+# We store the index difference instead of the absolute position
+# When we need an index difference larger than the bound, we padding filler zero to prevent overflow
 def filler_zero(value, index, max_bits):
     last_index = -1
+    max_bits_minus = max_bits - 1
     i = 0
     if index.size == 0:
         return index, index
-    while last_index < index[-1]:
+    # Save filler zero num
+    filler_num_array = []
+    # Save filler zero position index
+    filler_index_array = []
+    while i < len(index):
         diff = index[i] - last_index - 1
-        if diff > max_bits - 1:
-            filer_num = math.floor(diff / max_bits)
-            for j in range(filer_num):
-                value = np.insert(value, i, 0)
-                index = np.insert(index, i, max_bits - 1)
-            last_index += filer_num * max_bits
-            i += filer_num
+        if diff > max_bits_minus:
+            filler_num = math.floor(diff / max_bits)
+            filler_num_array.append(filler_num)
+            filler_index_array.append(i)
+            last_index += filler_num * max_bits
         else:
             last_index = index[i]
             index[i] = diff
             i += 1
-    return value, index
+
+    new_len = value.size + sum(filler_num_array)
+    new_value = np.empty(new_len, dtype=np.float32)
+    new_index = np.empty(new_len, dtype=np.uint16)
+    # index of new_index and new_value
+    k = 0
+    # index of filler_index_array and filler_num_array
+    j = 0
+    # index of index and value
+    n = 0
+    while k < new_len:
+        if j < len(filler_index_array) and filler_index_array[j] == n:
+            filler_num = filler_num_array[j]
+            for m in range(filler_num):
+                new_index[k] = max_bits_minus
+                new_value[k] = 0
+                k += 1
+            j += 1
+        else:
+            new_index[k] = index[n]
+            new_value[k] = value[n]
+            n += 1
+            k += 1
+
+    return new_value, new_index
 
 
-def save_sparse_model(net, path):
+# def filler_zero1(value, index, max_bits):
+#     last_index = -1
+#     i = 0
+#     if index.size == 0:
+#         return index, index
+#     while last_index < index[-1]:
+#         diff = index[i] - last_index - 1
+#         if diff > max_bits - 1:
+#             filer_num = math.floor(diff / max_bits)
+#             for j in range(filer_num):
+#                 value = np.insert(value, i, 0)
+#                 index = np.insert(index, i, max_bits - 1)
+#             last_index += filer_num * max_bits
+#             i += filer_num
+#         else:
+#             last_index = index[i]
+#             index[i] = diff
+#             i += 1
+#     return value, index
+#
+#
+# # test filler zero
+# a = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+#               0, 0, 0, 0, 0, 0, 0, 0, 0, 3.4,
+#               0, 0, 0.9, 0, 0, 0, 0, 0, 0, 0,
+#               0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+#               0, 0, 0, 0, 0, 0, 1.7])
+# tensor = torch.from_numpy(a)
+# mat = csr_matrix(tensor)
+# print(mat.data)
+# print(mat.indices)
+# data = mat.data.copy()
+# indices = mat.indices.copy()
+# value_list, diff_list = filler_zero(mat.data, mat.indices, 8)
+# print(value_list)
+# print(diff_list)
+# # [0.  0.  3.4 0.9 0.  0.  1.7]
+# # [7 7 3 2 7 7 7]
+# value_list1, diff_list1 = filler_zero1(data, indices, 8)
+# print(value_list1)
+# print(diff_list1)
+# # [0.  0.  3.4 0.9 0.  0.  1.7]
+# # [7 7 3 2 7 7 7]
+
+
+def save_sparse_model(net, path, unit):
     nz_num = []
     conv_diff_array = []
     fc_diff_array = []
@@ -171,7 +243,11 @@ def save_sparse_model(net, path):
 
     nz_num = np.asarray(nz_num, dtype=np.uint32)
     layer_nz_num = nz_num[0::2] + nz_num[1::2]
-    print('The parameters are', round(nz_num.sum() / 1024, 2), 'K', layer_nz_num)
+    if unit == 'K':
+        temp = 1024
+    else:
+        temp = 1048576
+    print('The parameters are', round(nz_num.sum() / temp, 2), unit, layer_nz_num)
     conv_diff_array = np.asarray(conv_diff_array, dtype=np.uint8)
     fc_diff = np.asarray(fc_merge_diff, dtype=np.uint8)
     conv_value_array = np.asarray(conv_value_array, dtype=np.float32)
