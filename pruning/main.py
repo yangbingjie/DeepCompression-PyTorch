@@ -37,35 +37,47 @@ sensitivity_list = {
         'fc': 0.77,
     },
     'VGG16': {
-        'conv1': 0.5,
-        'conv': 0.8,
-        'fc': 0.9,
+        'conv1': 0.31,
+        'conv2': 0.57,
+        'conv3': 0.53,
+        'conv4': 0.55,
+        'conv5': 0.45,
+        'conv6': 0.655,
+        'conv7': 0.51,
+        'conv8': 0.59,
+        'conv9': 0.63,
+        'conv10': 0.59,
+        'conv11': 0.59,
+        'conv12': 0.64,
+        'conv13': 0.555,
+        'fc1': 1 - 1e-5,
+        'fc2': 1 - 1e-5,
+        'fc3': 0.64,
     }
 }
 sensitivity = sensitivity_list[net_type]
 print(sensitivity)
 # When accuracy in test dataset is more than max_accuracy, save the model
-max_accuracy = 80
+max_accuracy = 92
 # LeNet: 330 3000 32000 950
 retrain_mode_list = {
-    'LeNet': [{'mode': 'full', 'prune_num': 1, 'retrain_epoch': 8}] * 5,
+    'LeNet': [{'mode': 'full', 'retrain_epoch': 8}] * 5,
     'AlexNet': [
-        {'mode': 'conv', 'prune_num': 1, 'retrain_epoch': 20},
-        {'mode': 'conv', 'prune_num': 1, 'retrain_epoch': 20},
-        {'mode': 'conv', 'prune_num': 1, 'retrain_epoch': 20},
-        {'mode': 'fc', 'prune_num': 1, 'retrain_epoch': 20},
-        {'mode': 'fc', 'prune_num': 1, 'retrain_epoch': 20},
-        {'mode': 'fc', 'prune_num': 1, 'retrain_epoch': 20},
-        {'mode': 'fc', 'prune_num': 1, 'retrain_epoch': 20}
+        {'mode': 'conv', 'retrain_epoch': 20},
+        {'mode': 'fc', 'retrain_epoch': 20},
+        {'mode': 'fc', 'retrain_epoch': 20},
     ],
     'VGG16': [
-        {'mode': 'fc', 'prune_num': 5, 'retrain_epoch': 1},
-        {'mode': 'fc', 'prune_num': 5, 'retrain_epoch': 1},
-        {'mode': 'fc', 'prune_num': 5, 'retrain_epoch': 1},
-        {'mode': 'fc', 'prune_num': 5, 'retrain_epoch': 1},
-        {'mode': 'conv', 'prune_num': 5, 'retrain_epoch': 1},
-        {'mode': 'conv', 'prune_num': 5, 'retrain_epoch': 1},
-        {'mode': 'conv', 'prune_num': 5, 'retrain_epoch': 1},
+        {'mode': 'fc', 'retrain_epoch': 3},
+        {'mode': 'fc', 'retrain_epoch': 3},
+        {'mode': 'fc', 'retrain_epoch': 3},
+        {'mode': 'fc', 'retrain_epoch': 3},
+        {'mode': 'fc', 'retrain_epoch': 3},
+        {'mode': 'conv', 'retrain_epoch': 3},
+        {'mode': 'conv', 'retrain_epoch': 3},
+        {'mode': 'conv', 'retrain_epoch': 3},
+        {'mode': 'conv', 'retrain_epoch': 3},
+        {'mode': 'conv', 'retrain_epoch': 3}
     ]
 }
 
@@ -153,19 +165,17 @@ helper.test(use_cuda, testloader, net)
 # Retrain
 optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()), lr=retrain_lr,
                       weight_decay=learning_rate_decay)
-scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[80, 100], gamma=0.1)
+scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[20], gamma=0.1)
 for j in range(len(retrain_mode_type)):
     retrain_mode = retrain_mode_type[j]['mode']
-    for k in range(retrain_mode_type[j]['prune_num']):
-        net.prune_layer(prune_mode=retrain_mode, use_cuda=use_cuda, sensitivity=sensitivity)
-    if hasattr(net, 'drop_rate'):
+    net.prune_layer(prune_mode=retrain_mode, use_cuda=use_cuda, sensitivity=sensitivity)
+    if hasattr(net, 'drop_rate') and retrain_mode == 'fc':
         net.compute_dropout_rate()
     print('====================== Retrain', j, retrain_mode, 'Start ==================')
     if retrain_mode_type[j]['mode'] != 'full':
         net.fix_layer(net, fix_mode='conv' if retrain_mode == 'fc' else 'fc')
-    helper.train(testloader, net, trainloader, criterion, optimizer, retrain_path, scheduler, max_accuracy, unit,
-                 use_cuda=use_cuda, epoch=retrain_mode_type[j]['retrain_epoch'], auto_save=False)
+    helper.train(testloader, net, trainloader, criterion, optimizer, retrain_path, scheduler, max_accuracy,
+                 unit, use_cuda=use_cuda, epoch=retrain_mode_type[j]['retrain_epoch'], save_sparse=True)
     print('====================== ReTrain End ======================')
 
 helper.save_sparse_model(net, retrain_path, unit)
-log.log_file_size(retrain_path, unit)

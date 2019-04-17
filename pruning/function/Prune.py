@@ -170,4 +170,3 @@ class PruneModule(Module):
                 p.requires_grad = False
             else:
                 p.requires_grad = True
-        print('===== fix mode end', '======')

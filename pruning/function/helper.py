@@ -1,9 +1,9 @@
 import math
-import time
 import torch
 import torchvision
 import numpy as np
 from tqdm import tqdm
+import util.log as log
 from scipy.sparse import csr_matrix
 import torchvision.transforms as transforms
 
@@ -156,51 +156,6 @@ def filler_zero(value, index, max_bits):
     return new_value, new_index
 
 
-# def filler_zero1(value, index, max_bits):
-#     last_index = -1
-#     i = 0
-#     if index.size == 0:
-#         return index, index
-#     while last_index < index[-1]:
-#         diff = index[i] - last_index - 1
-#         if diff > max_bits - 1:
-#             filer_num = math.floor(diff / max_bits)
-#             for j in range(filer_num):
-#                 value = np.insert(value, i, 0)
-#                 index = np.insert(index, i, max_bits - 1)
-#             last_index += filer_num * max_bits
-#             i += filer_num
-#         else:
-#             last_index = index[i]
-#             index[i] = diff
-#             i += 1
-#     return value, index
-#
-#
-# # test filler zero
-# a = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-#               0, 0, 0, 0, 0, 0, 0, 0, 0, 3.4,
-#               0, 0, 0.9, 0, 0, 0, 0, 0, 0, 0,
-#               0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-#               0, 0, 0, 0, 0, 0, 1.7])
-# tensor = torch.from_numpy(a)
-# mat = csr_matrix(tensor)
-# print(mat.data)
-# print(mat.indices)
-# data = mat.data.copy()
-# indices = mat.indices.copy()
-# value_list, diff_list = filler_zero(mat.data, mat.indices, 8)
-# print(value_list)
-# print(diff_list)
-# # [0.  0.  3.4 0.9 0.  0.  1.7]
-# # [7 7 3 2 7 7 7]
-# value_list1, diff_list1 = filler_zero1(data, indices, 8)
-# print(value_list1)
-# print(diff_list1)
-# # [0.  0.  3.4 0.9 0.  0.  1.7]
-# # [7 7 3 2 7 7 7]
-
-
 def save_sparse_model(net, path, unit):
     nz_num = []
     conv_diff_array = []
@@ -260,3 +215,4 @@ def save_sparse_model(net, path, unit):
 
     sparse_obj = np.concatenate((nz_num, conv_diff_array, fc_diff, conv_value_array, fc_value_array))
     sparse_obj.tofile(path)
+    log.log_file_size(path, unit)
