@@ -5,6 +5,7 @@ import math
 from tqdm import tqdm
 from pruning.function.helper import test
 
+
 def load_sparse_model(net, path, fc_bits):
     '''load the model which is saved as sparse matrix
 
@@ -98,25 +99,16 @@ def restructure_index(index_list, conv_layer_num, max_conv_bit, max_fc_bit):
 
     Returns:
         new_index_list:     Contains the index belonging to each value in codebook
-        new_count_list:     Contains the amount of index belonging to each value in codebook
-        key_parameter:      
+        key_parameter:
     '''
     new_index_list = []
-    new_count_list = []
-    count_list = []
 
     for i in range(len(index_list)):
         num = max_conv_bit if i < conv_layer_num else max_fc_bit
         tmp_index = []
-        tmp_count = []
         for j in range(num):
             tmp_index.append(np.where(np.asarray(index_list[i]) == j)[0].tolist())
-            tmp_count.append(len(tmp_index[j]))
         new_index_list.append(tmp_index)
-        count_list.append(tmp_count)
-
-    for k in range(0, len(count_list), 2):
-        new_count_list.append(np.sum([count_list[k], count_list[k + 1]], axis=0).tolist())
 
     key_parameter = []
     for j in range(int(len(index_list) / 2)):
@@ -128,7 +120,7 @@ def restructure_index(index_list, conv_layer_num, max_conv_bit, max_fc_bit):
             # print(m, layer_index[m])
             if layer_index[m] != -1 and key_parameter[j][layer_index[m]] is None:
                 key_parameter[j][layer_index[m]] = m
-    return new_index_list, new_count_list, key_parameter
+    return new_index_list, key_parameter
 
 
 def sparse_to_init(net, conv_layer_length, nz_num, sparse_conv_diff, sparse_fc_diff, codebook, max_conv_bit,
@@ -164,11 +156,12 @@ def sparse_to_init(net, conv_layer_length, nz_num, sparse_conv_diff, sparse_fc_d
         index.reshape(shape)
         index_list.append(index)
 
-    new_index_list, count_list, key_parameter = restructure_index(index_list, conv_layer_length, max_conv_bit,
+    new_index_list, key_parameter = restructure_index(index_list, conv_layer_length, max_conv_bit,
                                                                   max_fc_bit)
-    return new_index_list, count_list, key_parameter
+    return new_index_list, key_parameter
 
-def cluster_grad(count_list, net, index_list, max_conv_bit, max_fc_bit, conv_layer_length):
+
+def cluster_grad(net, index_list, max_conv_bit, max_fc_bit, conv_layer_length):
     params = list(net.parameters())
     # print('========Start========')
     for i in range(0, len(params), 2):
@@ -191,22 +184,15 @@ def cluster_grad(count_list, net, index_list, max_conv_bit, max_fc_bit, conv_lay
         cluster_bits = max_conv_bit if i < conv_layer_length else max_fc_bit
         for j in range(cluster_bits):
             sum_grad = grad[index[j]].sum()
-
             sum_grad += bias_grad[bias_index[j]].sum()
-            count = count_list[half_index][j]
-            mean_grad = 0
-            if count != 0:
-                mean_grad = sum_grad / count
-
-            grad[index[j]] = mean_grad
-            bias_grad[bias_index[j]] = mean_grad
+            grad[index[j]] = sum_grad
+            bias_grad[bias_index[j]] = sum_grad
 
         grad = grad.view(grad_shape)
         params[i].grad = grad.clone()
 
         bias_grad = bias_grad.view(bias_grad_shape)
         params[i + 1].grad = bias_grad.clone()
-
 
 
 def update_codebook(net, codebook, conv_layer_length, max_conv_bit, max_fc_bit, key_parameter):
@@ -227,7 +213,7 @@ def update_codebook(net, codebook, conv_layer_length, max_conv_bit, max_fc_bit, 
                 codebook_centroids[j] = layer[tmp]
 
 
-def train_codebook(key_parameter, count_list, use_cuda, max_conv_bit, max_fc_bit, conv_layer_length,
+def train_codebook(key_parameter, use_cuda, max_conv_bit, max_fc_bit, conv_layer_length,
                    codebook, index_list, testloader, net, trainloader, criterion, optimizer,
                    epoch=1, epoch_step=25, ):
     scheduler = lr_scheduler.StepLR(optimizer, step_size=epoch_step, gamma=0.5)
@@ -247,7 +233,7 @@ def train_codebook(key_parameter, count_list, use_cuda, max_conv_bit, max_fc_bit
             loss = criterion(outputs, labels)  # compute loss
             loss.backward()  # backward
 
-            cluster_grad(count_list, net, index_list, max_conv_bit, max_fc_bit, conv_layer_length)
+            cluster_grad(net, index_list, max_conv_bit, max_fc_bit, conv_layer_length)
 
             optimizer.step()  # update weight
 

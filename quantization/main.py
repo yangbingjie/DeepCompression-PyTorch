@@ -61,7 +61,7 @@ net = LeNet5()
 max_value = np.finfo(np.float32).max
 max_conv_bit = 2 ** quantization_conv_bits
 max_fc_bit = 2 ** quantization_fc_bits
-index_list, count_list, key_parameter = helper.sparse_to_init(
+index_list, key_parameter = helper.sparse_to_init(
     net, conv_layer_length, nz_num, conv_diff, fc_diff, codebook, max_conv_bit, max_fc_bit)
 if use_cuda:
     # move param and buffer to GPU
@@ -76,7 +76,7 @@ optimizer = optim.SGD(net.parameters(), lr=lr, momentum=0.9, weight_decay=1e-5)
 
 test(use_cuda, testloader, net)
 
-helper.train_codebook(key_parameter, count_list, use_cuda, max_conv_bit, max_fc_bit, conv_layer_length, codebook,
+helper.train_codebook(key_parameter, use_cuda, max_conv_bit, max_fc_bit, conv_layer_length, codebook,
                       index_list, testloader, net, trainloader, criterion,
                       optimizer, retrain_epoch)
 
