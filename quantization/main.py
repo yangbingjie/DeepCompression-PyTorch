@@ -1,24 +1,38 @@
 import os
 import torch
-import torchvision
-import torch.nn as nn
+import argparse
 import numpy as np
-import torchvision.transforms as transforms
-from pruning.net.PruneLeNet5 import PruneLeNet5
-from quantization.function.weight_share import share_weight
+import torch.nn as nn
+import util.log as log
+import torch.optim as optim
+import torch.backends.cudnn as cudnn
+from pruning.function.helper import test
 from quantization.net.LeNet5 import LeNet5
 import quantization.function.helper as helper
-import torch.optim as optim
-from pruning.function.helper import test
-import torch.backends.cudnn as cudnn
-import util.log as log
+from pruning.net.PruneLeNet5 import PruneLeNet5
+from pruning.function.helper import load_dataset
+from quantization.function.weight_share import share_weight
 
-prune_result_path = './pruning/result/LeNet_retrain'
+parser = argparse.ArgumentParser()
+parser.add_argument("net", help="Network name", type=str)   # LeNet, Alexnet VGG16
+parser.add_argument("data", help="Dataset name", type=str)   # MNIST CIFAR10
+args = parser.parse_args()
+if args.net:
+    net_name = args.net
+else:
+    net_name = 'VGG16'
+if args.data:
+    dataset_name = args.data
+else:
+    dataset_name = 'CIFAR10'
+
+prune_path_root = './pruning/result/'
+prune_result_path = prune_path_root + net_name
 
 retrain_codebook_root = './quantization/result/'
 if not os.path.exists(retrain_codebook_root):
     os.mkdir(retrain_codebook_root)
-retrain_codebook_name = 'LeNet_codebook'
+retrain_codebook_name = net_name + '_codebook'
 retrain_epoch = 1
 
 use_cuda = torch.cuda.is_available()
@@ -37,25 +51,13 @@ if not os.path.exists(retrain_codebook_root):
 prune_net = PruneLeNet5()
 conv_layer_length, codebook, nz_num, conv_diff, fc_diff = share_weight(
     prune_net, prune_result_path, quantization_conv_bits, quantization_fc_bits, prune_fc_bits)
-
-transform = transforms.Compose(
-    [transforms.ToTensor(),
-     transforms.Normalize([0.5], [0.5])])
-# Loader
-kwargs = {'num_workers': 16, 'pin_memory': True} if use_cuda else {}
-
-trainset = torchvision.datasets.MNIST(root=data_dir, train=True,
-                                      download=True, transform=transform)
-
-testset = torchvision.datasets.MNIST(root=data_dir, train=False,
-                                     download=True, transform=transform)
-
-trainloader = torch.utils.data.DataLoader(trainset, batch_size=train_batch_size,
-                                          shuffle=True,
-                                          **kwargs)
-
-testloader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
-                                         **kwargs)
+num_workers_list = {
+    'LeNet': 16,
+    'AlexNet': 16,
+    'VGG16': 32
+}
+num_workers = num_workers_list[net_name]
+trainloader, testloader = load_dataset(use_cuda, train_batch_size, test_batch_size, num_workers, name=dataset_name)
 
 net = LeNet5()
 max_value = np.finfo(np.float32).max
