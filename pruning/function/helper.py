@@ -13,9 +13,10 @@ def load_dataset(use_cuda, train_batch_size, test_batch_size, num_workers, name=
     testloader = None
     if name == 'MNIST':
         kwargs = {'num_workers': num_workers, 'pin_memory': True} if use_cuda else {}
-        transform = transforms.Compose(
-            [transforms.ToTensor(),
-             transforms.Normalize([0.5], [0.5])])
+        transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,))
+        ])
         trainset = torchvision.datasets.MNIST(root=data_dir, train=True,
                                               download=True, transform=transform)
         testset = torchvision.datasets.MNIST(root=data_dir, train=False,

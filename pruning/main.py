@@ -12,8 +12,8 @@ import torch.optim.lr_scheduler as lr_scheduler
 from pruning.net.PruneAlexNet import PruneAlexNet
 
 parser = argparse.ArgumentParser()
-parser.add_argument("net", help="Network name", type=str)   # LeNet, Alexnet VGG16
-parser.add_argument("data", help="Dataset name", type=str)   # MNIST CIFAR10
+parser.add_argument("net", help="Network name", type=str)  # LeNet, AlexNet VGG16
+parser.add_argument("data", help="Dataset name", type=str)  # MNIST CIFAR10
 args = parser.parse_args()
 if args.net:
     net_name = args.net
@@ -37,10 +37,10 @@ train_epoch = train_epoch_list[net_name]
 # Prune sensitivity
 sensitivity_list = {
     'LeNet': {
-        'conv1': 0.4,
-        'conv2': 0.73,
-        'fc1': 0.9,
-        'fc2': 0.7
+        'conv1': 0.39,
+        'conv2': 0.8,
+        'fc1': 1.05,  # 33687 1 27665 1.1
+        'fc2': 0.76
     },
     'AlexNet': {
         'conv1': 0.3,
@@ -61,8 +61,8 @@ sensitivity_list = {
         'conv11': 0.59,
         'conv12': 0.64,
         'conv13': 0.555,
-        'fc1': 1.33,  # 1.32
-        'fc2': 1.33,  # 1.32
+        'fc1': 1.1,  # 3次之后 90.71 1.2
+        'fc2': 1.1,
         'fc3': 0.64,
     }
 }
@@ -77,18 +77,23 @@ max_accuracy_list = {
 max_accuracy = max_accuracy_list[net_name]
 # LeNet: 330 3000 32000 950
 retrain_mode_list = {
-    'LeNet': [{'mode': 'full', 'retrain_epoch': 8}] * 5,
+    'LeNet': [
+        {'mode': 'full', 'retrain_epoch': 10},
+        {'mode': 'full', 'retrain_epoch': 20},
+        {'mode': 'full', 'retrain_epoch': 20}
+    ],
+
     'AlexNet': [
         {'mode': 'conv', 'retrain_epoch': 20},
         {'mode': 'fc', 'retrain_epoch': 20},
         {'mode': 'fc', 'retrain_epoch': 20},
     ],
     'VGG16': [
-        {'mode': 'fc', 'retrain_epoch': 30},
-        {'mode': 'fc', 'retrain_epoch': 30},
-        {'mode': 'fc', 'retrain_epoch': 30},
-        {'mode': 'fc', 'retrain_epoch': 30},
-        {'mode': 'fc', 'retrain_epoch': 30},
+        {'mode': 'fc', 'retrain_epoch': 20},
+        {'mode': 'fc', 'retrain_epoch': 20},
+        {'mode': 'fc', 'retrain_epoch': 20},
+        {'mode': 'fc', 'retrain_epoch': 20},
+        {'mode': 'fc', 'retrain_epoch': 20},
         # {'mode': 'conv', 'retrain_epoch': 10},
         # {'mode': 'conv', 'retrain_epoch': 10},
         # {'mode': 'conv', 'retrain_epoch': 10},
@@ -123,6 +128,11 @@ lr_list = {
 }
 lr = lr_list[net_name]
 
+train_milestones_list = {
+    'LeNet': [],
+    'AlexNet': [30, 50],
+    'VGG16': [100, 180]
+}
 # After pruning, the LeNet is retrained with 1/10 of the original network's learning rate
 # After pruning, the AlexNet is retrained with 1/100 of the original network's learning rate
 retrain_lr_list = {
@@ -131,6 +141,11 @@ retrain_lr_list = {
     'VGG16': lr / 100
 }
 retrain_lr = retrain_lr_list[net_name]
+retrain_milestones_list = {
+    'LeNet': [],
+    'AlexNet': [20, 30],
+    'VGG16': [15]
+}
 
 if net_name == 'LeNet':
     net = PruneLeNet5()
@@ -150,13 +165,15 @@ num_workers_list = {
     'VGG16': 32
 }
 num_workers = num_workers_list[net_name]
-trainloader, testloader = helper.load_dataset(use_cuda, train_batch_size, test_batch_size, num_workers, name=dataset_name)
+trainloader, testloader = helper.load_dataset(use_cuda, train_batch_size, test_batch_size, num_workers,
+                                              name=dataset_name)
 
 if not os.path.exists(path_root):
     os.mkdir(path_root)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=lr, momentum=0.9, weight_decay=learning_rate_decay)
-scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[100, 180], gamma=0.1)
+train_milestones = train_milestones_list[net_name]
+scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=train_milestones, gamma=0.1)
 
 if use_cuda:
     # move param and buffer to GPU
@@ -181,7 +198,9 @@ helper.test(use_cuda, testloader, net)
 # Retrain
 optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()), lr=retrain_lr,
                       weight_decay=learning_rate_decay)
-scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[20], gamma=0.1)
+
+retrain_milestones = retrain_milestones_list[net_name]
+scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=retrain_milestones, gamma=0.1)
 for j in range(len(retrain_mode_type)):
     retrain_mode = retrain_mode_type[j]['mode']
     net.prune_layer(prune_mode=retrain_mode, use_cuda=use_cuda, sensitivity=sensitivity)
