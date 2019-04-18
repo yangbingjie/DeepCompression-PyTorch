@@ -26,7 +26,7 @@ class PruneVGG16(prune.PruneModule):
                 names['conv' + str(i)] = prune.MaskConv2Module(in_channels, layer,
                                                                kernel_size=kernel_size, padding=padding)
                 in_channels = layer
-        self.fc1 = prune.MaskLinearModule(512 * 7 * 7, 4096)
+        self.fc1 = prune.MaskLinearModule(25088, 4096)
         self.fc2 = prune.MaskLinearModule(4096, 4096)
         self.fc3 = prune.MaskLinearModule(4096, num_classes)
         self.drop_rate = [0.5, 0.5]

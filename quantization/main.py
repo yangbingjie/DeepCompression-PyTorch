@@ -27,7 +27,7 @@ else:
     dataset_name = 'CIFAR10'
 
 prune_path_root = './pruning/result/'
-prune_result_path = prune_path_root + net_name
+prune_result_path = prune_path_root + net_name + '_retrain'
 
 retrain_codebook_root = './quantization/result/'
 if not os.path.exists(retrain_codebook_root):

@@ -39,7 +39,7 @@ sensitivity_list = {
     'LeNet': {
         'conv1': 0.39,
         'conv2': 0.8,
-        'fc1': 1.05,  # 33687 1 27665 1.1
+        'fc1': 1.01,  # 33687 1 29633 1.05
         'fc2': 0.76
     },
     'AlexNet': {
@@ -61,8 +61,8 @@ sensitivity_list = {
         'conv11': 0.59,
         'conv12': 0.64,
         'conv13': 0.555,
-        'fc1': 1.1,  # 3次之后 90.71 1.2
-        'fc2': 1.1,
+        'fc1': 10.1,
+        'fc2': 9,
         'fc3': 0.64,
     }
 }
@@ -78,9 +78,9 @@ max_accuracy = max_accuracy_list[net_name]
 # LeNet: 330 3000 32000 950
 retrain_mode_list = {
     'LeNet': [
-        {'mode': 'full', 'retrain_epoch': 10},
-        {'mode': 'full', 'retrain_epoch': 20},
-        {'mode': 'full', 'retrain_epoch': 20}
+        {'mode': 'full', 'retrain_epoch': 12},
+        {'mode': 'full', 'retrain_epoch': 24},
+        {'mode': 'full', 'retrain_epoch': 30}
     ],
 
     'AlexNet': [
@@ -89,16 +89,16 @@ retrain_mode_list = {
         {'mode': 'fc', 'retrain_epoch': 20},
     ],
     'VGG16': [
-        {'mode': 'fc', 'retrain_epoch': 20},
-        {'mode': 'fc', 'retrain_epoch': 20},
-        {'mode': 'fc', 'retrain_epoch': 20},
-        {'mode': 'fc', 'retrain_epoch': 20},
-        {'mode': 'fc', 'retrain_epoch': 20},
-        # {'mode': 'conv', 'retrain_epoch': 10},
-        # {'mode': 'conv', 'retrain_epoch': 10},
-        # {'mode': 'conv', 'retrain_epoch': 10},
-        # {'mode': 'conv', 'retrain_epoch': 10},
-        # {'mode': 'conv', 'retrain_epoch': 10}
+        {'mode': 'fc', 'retrain_epoch': 1},
+        {'mode': 'fc', 'retrain_epoch': 1},
+        {'mode': 'fc', 'retrain_epoch': 1},
+        {'mode': 'fc', 'retrain_epoch': 1},
+        {'mode': 'fc', 'retrain_epoch': 1},
+        # {'mode': 'conv', 'retrain_epoch': 1},
+        # {'mode': 'conv', 'retrain_epoch': 1},
+        # {'mode': 'conv', 'retrain_epoch': 1},
+        # {'mode': 'conv', 'retrain_epoch': 1},
+        # {'mode': 'conv', 'retrain_epoch': 1}
     ]
 }
 
@@ -130,7 +130,7 @@ lr = lr_list[net_name]
 
 train_milestones_list = {
     'LeNet': [],
-    'AlexNet': [30, 50],
+    'AlexNet': [32],
     'VGG16': [100, 180]
 }
 # After pruning, the LeNet is retrained with 1/10 of the original network's learning rate
@@ -143,7 +143,7 @@ retrain_lr_list = {
 retrain_lr = retrain_lr_list[net_name]
 retrain_milestones_list = {
     'LeNet': [],
-    'AlexNet': [20, 30],
+    'AlexNet': [],
     'VGG16': [15]
 }
 
