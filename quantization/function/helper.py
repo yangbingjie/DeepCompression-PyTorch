@@ -62,7 +62,7 @@ def load_sparse_model(net, path, fc_bits):
     max_bits = (2 ** fc_bits) - 1
     for i in range(len(fc_merge_diff)):
         fc_diff.append(int(fc_merge_diff[i] >> fc_bits))  # first 4 bits
-        fc_diff.append(fc_merge_diff[i] | max_bits)  # last 4 bits
+        fc_diff.append(fc_merge_diff[i] & max_bits)  # last 4 bits
     fc_num_sum = nz_num[conv_layer_num:].sum()
     if fc_num_sum % 2 != 0:
         fc_diff = fc_diff[:fc_num_sum]
