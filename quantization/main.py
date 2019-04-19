@@ -8,8 +8,13 @@ import torch.optim as optim
 import torch.backends.cudnn as cudnn
 from pruning.function.helper import test
 from quantization.net.LeNet5 import LeNet5
+from quantization.net.AlexNet import AlexNet
+from quantization.net.VGG16 import VGG16
 import quantization.function.helper as helper
 from pruning.net.PruneLeNet5 import PruneLeNet5
+from pruning.net.PruneVGG16 import PruneVGG16
+from pruning.net.PruneAlexNet import PruneAlexNet
+
 from pruning.function.helper import load_dataset
 from quantization.function.weight_share import share_weight
 
@@ -48,7 +53,24 @@ retrain_codebook_path = retrain_codebook_root + retrain_codebook_name
 if not os.path.exists(retrain_codebook_root):
     os.mkdir(retrain_codebook_root)
 
-prune_net = PruneLeNet5()
+
+if net_name == 'LeNet':
+    prune_net = PruneLeNet5()
+elif net_name == 'AlexNet':
+    prune_net = PruneAlexNet(num_classes=10)
+elif net_name == 'VGG16':
+    prune_net = PruneVGG16(num_classes=10)
+else:
+    prune_net = None
+
+if net_name == 'LeNet':
+    net = LeNet5()
+elif net_name == 'AlexNet':
+    net = AlexNet(num_classes=10)
+elif net_name == 'VGG16':
+    net = VGG16(num_classes=10)
+else:
+    net = None
 conv_layer_length, codebook, nz_num, conv_diff, fc_diff = share_weight(
     prune_net, prune_result_path, quantization_conv_bits, quantization_fc_bits, prune_fc_bits)
 num_workers_list = {
@@ -59,7 +81,6 @@ num_workers_list = {
 num_workers = num_workers_list[net_name]
 trainloader, testloader = load_dataset(use_cuda, train_batch_size, test_batch_size, num_workers, name=dataset_name)
 
-net = LeNet5()
 max_value = np.finfo(np.float32).max
 max_conv_bit = 2 ** quantization_conv_bits
 max_fc_bit = 2 ** quantization_fc_bits

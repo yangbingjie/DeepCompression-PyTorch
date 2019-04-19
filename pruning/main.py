@@ -31,7 +31,7 @@ if use_cuda:
 train_epoch_list = {
     'LeNet': 4,
     'AlexNet': 100,
-    'VGG16': 200,
+    'VGG16': 100,
 }
 train_epoch = train_epoch_list[net_name]
 # Prune sensitivity
@@ -61,20 +61,26 @@ sensitivity_list = {
         'conv11': 0.59,
         'conv12': 0.64,
         'conv13': 0.555,
-        'fc1': 10.1,
-        'fc2': 9,
-        'fc3': 0.64,
+        'fc1': 2.47,  # 2.45
+        'fc2': 2.2,  # 2.15
+        'fc3': 0.6,  # 0.6
     }
 }
 sensitivity = sensitivity_list[net_name]
 print(sensitivity)
 # When accuracy in test dataset is more than max_accuracy, save the model
-max_accuracy_list = {
+train_max_accuracy_list = {
     'LeNet': 99.3,
     'AlexNet': 90,
-    'VGG16': 93
+    'VGG16': 90
 }
-max_accuracy = max_accuracy_list[net_name]
+retrain_max_accuracy_list = {
+    'LeNet': 99.3,
+    'AlexNet': 90,
+    'VGG16': 91
+}
+train_max_accuracy = train_max_accuracy_list[net_name]
+retrain_max_accuracy = retrain_max_accuracy_list[net_name]
 # LeNet: 330 3000 32000 950
 retrain_mode_list = {
     'LeNet': [
@@ -89,16 +95,16 @@ retrain_mode_list = {
         {'mode': 'fc', 'retrain_epoch': 20},
     ],
     'VGG16': [
-        {'mode': 'fc', 'retrain_epoch': 1},
-        {'mode': 'fc', 'retrain_epoch': 1},
-        {'mode': 'fc', 'retrain_epoch': 1},
-        {'mode': 'fc', 'retrain_epoch': 1},
-        {'mode': 'fc', 'retrain_epoch': 1},
-        # {'mode': 'conv', 'retrain_epoch': 1},
-        # {'mode': 'conv', 'retrain_epoch': 1},
-        # {'mode': 'conv', 'retrain_epoch': 1},
-        # {'mode': 'conv', 'retrain_epoch': 1},
-        # {'mode': 'conv', 'retrain_epoch': 1}
+        {'mode': 'fc', 'retrain_epoch': 20},
+        {'mode': 'fc', 'retrain_epoch': 8},
+        {'mode': 'fc', 'retrain_epoch': 8},
+        {'mode': 'fc', 'retrain_epoch': 8},
+        {'mode': 'fc', 'retrain_epoch': 8},
+        # {'mode': 'conv', 'retrain_epoch': 10},
+        # {'mode': 'conv', 'retrain_epoch': 10},
+        # {'mode': 'conv', 'retrain_epoch': 10},
+        # {'mode': 'conv', 'retrain_epoch': 10},
+        # {'mode': 'conv', 'retrain_epoch': 10}
     ]
 }
 
@@ -131,21 +137,34 @@ lr = lr_list[net_name]
 train_milestones_list = {
     'LeNet': [],
     'AlexNet': [32],
-    'VGG16': [100, 180]
+    'VGG16': [32, 50]
 }
 # After pruning, the LeNet is retrained with 1/10 of the original network's learning rate
 # After pruning, the AlexNet is retrained with 1/100 of the original network's learning rate
 retrain_lr_list = {
-    'LeNet': lr / 10,
-    'AlexNet': lr / 100,
-    'VGG16': lr / 100
+    'LeNet': [
+        lr / 10
+    ],
+    'AlexNet': [
+        lr / 100
+    ],
+    'VGG16': [
+        lr / 1,
+        lr / 1,
+        lr / 1,
+        lr / 10,
+        lr / 100
+    ]
 }
 retrain_lr = retrain_lr_list[net_name]
 retrain_milestones_list = {
     'LeNet': [],
     'AlexNet': [],
-    'VGG16': [15]
+    'VGG16': [
+        [10]
+    ]
 }
+retrain_milestones = retrain_milestones_list[net_name]
 
 if net_name == 'LeNet':
     net = PruneLeNet5()
@@ -185,7 +204,7 @@ if use_cuda:
 if os.path.exists(train_path):
     net.load_state_dict(torch.load(train_path))
 else:
-    helper.train(testloader, net, trainloader, criterion, optimizer, train_path, scheduler, max_accuracy,
+    helper.train(testloader, net, trainloader, criterion, optimizer, train_path, scheduler, train_max_accuracy,
                  epoch=train_epoch, use_cuda=use_cuda)
     torch.save(net.state_dict(), train_path)
 if net_name == 'LeNet':
@@ -196,12 +215,14 @@ log.log_file_size(train_path, unit)
 helper.test(use_cuda, testloader, net)
 
 # Retrain
-optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()), lr=retrain_lr,
-                      weight_decay=learning_rate_decay)
-
-retrain_milestones = retrain_milestones_list[net_name]
-scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=retrain_milestones, gamma=0.1)
 for j in range(len(retrain_mode_type)):
+    scheduler = lr_scheduler.MultiStepLR(optimizer,
+                                         milestones=retrain_milestones[j] if j < len(retrain_milestones) else retrain_milestones[0],
+                                         gamma=0.1)
+    optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()),
+                          lr=retrain_lr[j] if j < len(retrain_lr) else retrain_lr[0],
+                          weight_decay=learning_rate_decay)
+
     retrain_mode = retrain_mode_type[j]['mode']
     net.prune_layer(prune_mode=retrain_mode, use_cuda=use_cuda, sensitivity=sensitivity)
     if hasattr(net, 'drop_rate') and retrain_mode == 'fc':
@@ -209,8 +230,8 @@ for j in range(len(retrain_mode_type)):
     print('====================== Retrain', j, retrain_mode, 'Start ==================')
     if retrain_mode_type[j]['mode'] != 'full':
         net.fix_layer(net, fix_mode='conv' if retrain_mode == 'fc' else 'fc')
-    helper.train(testloader, net, trainloader, criterion, optimizer, retrain_path, scheduler, max_accuracy,
+    helper.train(testloader, net, trainloader, criterion, optimizer, retrain_path, scheduler, retrain_max_accuracy,
                  unit, use_cuda=use_cuda, epoch=retrain_mode_type[j]['retrain_epoch'], save_sparse=True)
-    print('====================== ReTrain End ======================')
+    # print('====================== ReTrain End ======================')
 
 helper.save_sparse_model(net, retrain_path, unit)

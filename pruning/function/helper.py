@@ -65,7 +65,8 @@ def test(use_cuda, testloader, net):
             correct += (predicted == labels).sum().item()
 
     accuracy = (100 * correct / total)
-    print('Accuracy of the network on the test images: %.2f %%' % accuracy)
+    print('%.2f' % accuracy)
+    # print('Accuracy of the network on the test images: %.2f %%' % accuracy)
     return accuracy
 
 
@@ -77,7 +78,8 @@ def train(testloader, net, trainloader, criterion, optimizer, train_path, schedu
         train_loss = []
         # valid_loss = []
         net.train()
-        for inputs, labels in tqdm(trainloader):
+        for inputs, labels in trainloader:
+        # for inputs, labels in tqdm(trainloader):
             # get the inputs
             if use_cuda:
                 inputs = inputs.cuda()
@@ -95,7 +97,7 @@ def train(testloader, net, trainloader, criterion, optimizer, train_path, schedu
         with torch.no_grad():
             mean_train_loss = np.mean(train_loss)
             # mean_valid_loss = np.mean(valid_loss)
-            print("Epoch:", epoch, "Training Loss: %5f" % mean_train_loss)
+            # print("Epoch:", epoch, "Training Loss: %5f" % mean_train_loss)
             # "Valid Loss: %5f" % mean_valid_loss
             accuracy = test(use_cuda, testloader, net)
             scheduler.step()

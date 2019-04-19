@@ -37,7 +37,6 @@ def load_codebook(net, path, max_conv_bits, max_fc_bits):
     if fc_num_sum % 2 != 0:
         fc_diff = fc_diff[:fc_num_sum]
     fc_diff = np.asarray(fc_diff, dtype=np.uint8)
-
     conv_codebook_index = np.fromfile(fin, dtype=np.uint8, count=conv_diff_num)
     fc_codebook_index_merge = np.fromfile(fin, dtype=np.uint8, count=fc_merge_num)
     codebook_value_num = int(max_conv_bits * (conv_layer_num / 2) + (2 ** max_fc_bits) * (fc_layer_num / 2))
@@ -60,6 +59,11 @@ def load_codebook(net, path, max_conv_bits, max_fc_bits):
     if fc_num_sum % 2 != 0:
         fc_codebook_index = fc_codebook_index[:fc_num_sum]
     fc_codebook_index = np.asarray(fc_codebook_index, dtype=np.uint8)
+
+    print("if_error_more_15", (fc_codebook_index > 15).sum())
+    print("if_error_less_0", (fc_codebook_index < 0).sum())
+    print("fc_diff", (fc_codebook_index).sum())
+
     # print(nz_num)
     # print(len(conv_diff), conv_diff[-10:])
     # print(len(fc_diff), fc_diff[-10:])

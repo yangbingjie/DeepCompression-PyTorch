@@ -119,7 +119,7 @@ class PruneModule(Module):
             # p = 0.5 * math.sqrt(last_not_prune_num * next_not_prune_num / last_total_num * next_total_num)
             # the result of multiplication maybe overflow
             p = 0.5 * math.sqrt((last_unpruned_num / last_total_num) * (next_unpruned_num / next_total_num))
-            print('The drop out rate is:', round(p, 5))
+            # print('The drop out rate is:', round(p, 5))
             self.drop_rate[index] = p
 
     # prune_mode: prune 'conv' or prune 'fc'
@@ -136,7 +136,7 @@ class PruneModule(Module):
                 'conv1': 0.3,
                 'conv': 0.5,
             }
-        print('===== prune', prune_mode, '=====')
+        # print('===== prune', prune_mode, '=====')
         for name, module in self.named_modules():
             if name != '' and (prune_mode == 'full' or name.startswith(prune_mode)):
                 # The pruning threshold is chosen as a quality parameter multiplied
@@ -162,7 +162,7 @@ class PruneModule(Module):
     def fix_layer(self, net, fix_mode='not'):
         if fix_mode == 'not':
             return
-        print('===== fix mode is', fix_mode, '=====')
+        # print('===== fix mode is', fix_mode, '=====')
         for name, p in net.named_parameters():
             if name.endswith('mask') or name.startswith('bn'):
                 continue

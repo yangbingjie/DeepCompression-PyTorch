@@ -63,11 +63,15 @@ def load_sparse_model(net, path, fc_bits):
     for i in range(len(fc_merge_diff)):
         fc_diff.append(int(fc_merge_diff[i] >> fc_bits))  # first 4 bits
         fc_diff.append(fc_merge_diff[i] & max_bits)  # last 4 bits
+
+
     fc_num_sum = nz_num[conv_layer_num:].sum()
     if fc_num_sum % 2 != 0:
         fc_diff = fc_diff[:fc_num_sum]
     fc_diff = np.asarray(fc_diff, dtype=np.uint8)
-
+    # print("if_error_more_15", (fc_diff > 15).sum())
+    # print("if_error_less_0", (fc_diff < 0).sum())
+    # print("fc_diff", (fc_diff).sum())
     # layer_index = fc_diff[0:0 + nz_num[4]]
     # print(sum(layer_index) + len(layer_index))
 
@@ -148,7 +152,10 @@ def sparse_to_init(net, conv_layer_length, nz_num, sparse_conv_diff, sparse_fc_d
         codebook_index_array = codebook.codebook_index[half_index]
         while sparse_index < len(layer_diff):
             dense_index += layer_diff[sparse_index]
-            value[dense_index] = float(codebook.codebook_value[half_index][codebook_index_array[sparse_index]])
+            # value[dense_index] = float(codebook.codebook_value[half_index][codebook_index_array[sparse_index]])
+            # value[dense_index] = codebook.codebook_value[half_index][codebook_index_array[sparse_index]].item()
+            tmp = codebook.codebook_value[half_index][codebook_index_array[sparse_index]].item()
+            value[dense_index] = tmp
             index[dense_index] = int(codebook_index_array[sparse_index])
             sparse_index += 1
             dense_index += 1
