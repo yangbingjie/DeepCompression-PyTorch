@@ -16,6 +16,7 @@ def encode_huffman(symbol_probability):
 
 
 def encode_data(input, map):
+    output = [0]*len(input)
     for i in range(len(input)):
-        input[i] = map[input[i]]
-    return input
+        output[i] = map[input[i]]
+    return output
