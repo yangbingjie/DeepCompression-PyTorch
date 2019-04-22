@@ -48,22 +48,11 @@ sensitivity_list = {
         'fc': 0.77,
     },
     'VGG16': {
-        'conv1': 0.31,
-        'conv2': 0.57,
-        'conv3': 0.53,
-        'conv4': 0.55,
-        'conv5': 0.45,
-        'conv6': 0.655,
-        'conv7': 0.51,
-        'conv8': 0.59,
-        'conv9': 0.63,
-        'conv10': 0.59,
-        'conv11': 0.59,
-        'conv12': 0.64,
-        'conv13': 0.555,
-        'fc1': 2.47,  # 2.45
-        'fc2': 2.2,  # 2.15
-        'fc3': 0.6,  # 0.6
+        'conv1': 0.3,
+        'conv': 0.5,
+        'fc1': 2,
+        'fc2': 2,
+        'fc3': 0.6,
     }
 }
 sensitivity = sensitivity_list[net_name]
@@ -95,16 +84,21 @@ retrain_mode_list = {
         {'mode': 'fc', 'retrain_epoch': 20},
     ],
     'VGG16': [
-        {'mode': 'fc', 'retrain_epoch': 20},
-        {'mode': 'fc', 'retrain_epoch': 8},
-        {'mode': 'fc', 'retrain_epoch': 8},
-        {'mode': 'fc', 'retrain_epoch': 8},
-        {'mode': 'fc', 'retrain_epoch': 8},
-        # {'mode': 'conv', 'retrain_epoch': 10},
-        # {'mode': 'conv', 'retrain_epoch': 10},
-        # {'mode': 'conv', 'retrain_epoch': 10},
-        # {'mode': 'conv', 'retrain_epoch': 10},
-        # {'mode': 'conv', 'retrain_epoch': 10}
+        {'mode': 'fc', 'retrain_epoch': 10},
+        {'mode': 'fc', 'retrain_epoch': 10},
+        {'mode': 'fc', 'retrain_epoch': 10},
+        {'mode': 'fc', 'retrain_epoch': 10},
+        {'mode': 'fc', 'retrain_epoch': 10},
+        {'mode': 'fc', 'retrain_epoch': 10},
+        {'mode': 'fc', 'retrain_epoch': 10},
+        {'mode': 'fc', 'retrain_epoch': 10},
+        {'mode': 'fc', 'retrain_epoch': 10},
+        {'mode': 'fc', 'retrain_epoch': 10},
+        {'mode': 'conv', 'retrain_epoch': 10},
+        {'mode': 'conv', 'retrain_epoch': 10},
+        {'mode': 'conv', 'retrain_epoch': 10},
+        {'mode': 'conv', 'retrain_epoch': 10},
+        {'mode': 'conv', 'retrain_epoch': 10}
     ]
 }
 
@@ -146,22 +140,32 @@ retrain_lr_list = {
         lr / 10
     ],
     'AlexNet': [
-        lr / 100
+        lr / 1
     ],
     'VGG16': [
         lr / 1,
         lr / 1,
         lr / 1,
+        lr / 1,
+        lr / 1,
+        lr / 1,
+        lr / 1,
+        lr / 1,
+        lr / 1,
+        lr / 1,
         lr / 10,
-        lr / 100
     ]
 }
 retrain_lr = retrain_lr_list[net_name]
 retrain_milestones_list = {
-    'LeNet': [],
-    'AlexNet': [],
+    'LeNet': [
+        []
+    ],
+    'AlexNet': [
+        []
+    ],
     'VGG16': [
-        [10]
+        []
     ]
 }
 retrain_milestones = retrain_milestones_list[net_name]
@@ -217,10 +221,10 @@ helper.test(use_cuda, testloader, net)
 # Retrain
 for j in range(len(retrain_mode_type)):
     scheduler = lr_scheduler.MultiStepLR(optimizer,
-                                         milestones=retrain_milestones[j] if j < len(retrain_milestones) else retrain_milestones[0],
+                                         milestones=retrain_milestones[j] if j < len(retrain_milestones) else retrain_milestones[-1],
                                          gamma=0.1)
     optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()),
-                          lr=retrain_lr[j] if j < len(retrain_lr) else retrain_lr[0],
+                          lr=retrain_lr[j] if j < len(retrain_lr) else retrain_lr[-1],
                           weight_decay=learning_rate_decay)
 
     retrain_mode = retrain_mode_type[j]['mode']
