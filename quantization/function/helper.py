@@ -91,7 +91,38 @@ def load_sparse_model(net, path, fc_bits):
 
     return conv_layer_num, nz_num, conv_diff, fc_diff, conv_value_array, fc_value_array
 
+def sparse_to_init(net, before_path, conv_bits, fc_bits, prune_fc_bits):
+    conv_layer_length, nz_num, sparse_conv_diff, sparse_fc_diff, conv_value_array, fc_value_array \
+        = load_sparse_model(net, before_path, prune_fc_bits)
+    state_dict = net.state_dict()
+    index_list = []
+    conv_layer_index = 0
+    fc_layer_index = 0
+    layer_value = []
+    for i, (key, value) in enumerate(state_dict.items()):
+        shape = value.shape
+        value = value.view(-1)
 
+        value.zero_()
+        if i < conv_layer_length:
+            layer_diff = sparse_conv_diff[conv_layer_index:conv_layer_index + nz_num[i]]
+            layer_value = conv_value_array[conv_layer_index:conv_layer_index + nz_num[i]]
+            conv_layer_index += nz_num[i]
+        else:
+            layer_diff = sparse_fc_diff[fc_layer_index:fc_layer_index + nz_num[i]]
+            layer_value = fc_value_array[fc_layer_index:fc_layer_index + nz_num[i]]
+            fc_layer_index += nz_num[i]
+        dense_index = 0
+        sparse_index = 0
+        while sparse_index < len(layer_diff):
+            dense_index += layer_diff[sparse_index]
+            tmp = layer_value[sparse_index].item()
+            value[dense_index] = tmp
+            sparse_index += 1
+            dense_index += 1
+        value.reshape(shape)
+
+    
 def restructure_index(index_list, conv_layer_num, max_conv_bit, max_fc_bit):
     '''load the model which is saved as sparse matrix
 

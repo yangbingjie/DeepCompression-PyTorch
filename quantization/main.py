@@ -21,6 +21,7 @@ from quantization.function.weight_share import share_weight
 parser = argparse.ArgumentParser()
 parser.add_argument("net", help="Network name", type=str)   # LeNet, Alexnet VGG16
 parser.add_argument("data", help="Dataset name", type=str)   # MNIST CIFAR10
+parser.add_argument("--test", help="if test", dest='isTest', action='store_const', const=True, default=False)
 args = parser.parse_args()
 if args.net:
     net_name = args.net
@@ -89,8 +90,19 @@ elif net_name == 'VGG16':
         net = VGG16(num_classes=100)
 else:
     net = None
-conv_layer_length, codebook, nz_num, conv_diff, fc_diff = share_weight(
-    prune_net, prune_result_path, quantization_conv_bits, quantization_fc_bits, prune_fc_bits)
+
+if args.isTest:
+    helper.sparse_to_init(net, prune_result_path, quantization_conv_bits, quantization_fc_bits, prune_fc_bits)
+else:
+    conv_layer_length, codebook, nz_num, conv_diff, fc_diff = share_weight(
+        prune_net, prune_result_path, quantization_conv_bits, quantization_fc_bits, prune_fc_bits)
+        
+    max_value = np.finfo(np.float32).max
+    max_conv_bit = 2 ** quantization_conv_bits
+    max_fc_bit = 2 ** quantization_fc_bits
+    index_list, key_parameter = helper.codebook_to_init(
+        net, conv_layer_length, nz_num, conv_diff, fc_diff, codebook, max_conv_bit, max_fc_bit)
+        
 num_workers_list = {
     'LeNet': 16,
     'AlexNet': 16,
@@ -99,11 +111,7 @@ num_workers_list = {
 num_workers = num_workers_list[net_name]
 trainloader, testloader = load_dataset(use_cuda, train_batch_size, test_batch_size, num_workers, name=dataset_name, net_name=net_name)
 
-max_value = np.finfo(np.float32).max
-max_conv_bit = 2 ** quantization_conv_bits
-max_fc_bit = 2 ** quantization_fc_bits
-index_list, key_parameter = helper.codebook_to_init(
-    net, conv_layer_length, nz_num, conv_diff, fc_diff, codebook, max_conv_bit, max_fc_bit)
+
 if use_cuda:
     # move param and buffer to GPU
     net.cuda()
@@ -117,7 +125,8 @@ optimizer = optim.SGD(net.parameters(), lr=lr, momentum=0.9, weight_decay=1e-5)
 
 print('Test')
 test(use_cuda, testloader, net)
-
+if args.isTest:
+    os._exit(0)
 print('Begin fine tune')
 helper.train_codebook(key_parameter, use_cuda, max_conv_bit, max_fc_bit, conv_layer_length, codebook,
                       index_list, testloader, net, trainloader, criterion,
