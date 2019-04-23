@@ -148,16 +148,20 @@ train_batch_size = train_batch_size_list[net_name]
 test_batch_size = 64
 
 lr_list = {
-    'LeNet': 1e-2,
-    'AlexNet': 1e-2,
-    'VGG16': 1e-2
+    'LeNet_MNIST': 1e-2,
+    'AlexNet_CIFAR10': 1e-2,
+    'VGG16_CIFAR10': 1e-2,
+    'AlexNet_CIFAR100': 1e-1,
+    'VGG16_CIFAR100': 1e-1
 }
-lr = lr_list[net_name]
+lr = lr_list[net_and_data]
 
 train_milestones_list = {
-    'LeNet': [],
-    'AlexNet': [30],
-    'VGG16': [32, 50]
+    'LeNet_MNIST': [],
+    'AlexNet_CIFAR10': [30],
+    'VGG16_CIFAR10': [32, 50],
+    'AlexNet_CIFAR100': [],
+    'VGG16_CIFAR100': []
 }
 # After pruning, the LeNet_MNIST is retrained with 1/10 of the original network's learning rate
 # After pruning, the AlexNet_CIFAR10 is retrained with 1/100 of the original network's learning rate
@@ -217,7 +221,7 @@ if not os.path.exists(path_root):
     os.mkdir(path_root)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=lr, momentum=0.9, weight_decay=learning_rate_decay)
-train_milestones = train_milestones_list[net_name]
+train_milestones = train_milestones_list[net_and_data]
 scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=train_milestones, gamma=0.1)
 
 if use_cuda:

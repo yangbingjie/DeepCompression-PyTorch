@@ -8,8 +8,7 @@ from scipy.sparse import csr_matrix
 import torchvision.transforms as transforms
 
 
-def load_dataset(use_cuda, train_batch_size, test_batch_size, num_workers, name='MNIST', net_name='LeNet',
-                 data_dir='./data'):
+def load_dataset(use_cuda, train_batch_size, test_batch_size, num_workers, name='MNIST', net_name='LeNet', data_dir='./data'):
     trainloader = None
     testloader = None
     if name == 'MNIST':
@@ -27,27 +26,6 @@ def load_dataset(use_cuda, train_batch_size, test_batch_size, num_workers, name=
         testloader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
                                                  **kwargs)
     elif name == 'CIFAR10':
-        kwargs = {'num_workers': num_workers, 'pin_memory': True} if use_cuda else {}
-        transform_train = transforms.Compose([
-            transforms.RandomCrop(32, padding=4),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-        ])
-
-        transform_test = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-        ])
-        trainset = torchvision.datasets.CIFAR10(root=data_dir, train=True,
-                                                download=True, transform=transform_train)
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=train_batch_size,
-                                                  shuffle=True, **kwargs)
-        testset = torchvision.datasets.CIFAR10(root=data_dir, train=False,
-                                               download=True, transform=transform_test)
-        testloader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
-                                                 shuffle=False, **kwargs)
-    elif name == 'CIFAR100':
         kwargs = {'num_workers': num_workers, 'pin_memory': True} if use_cuda else {}
         transform_train = None
         transform_test = None
@@ -67,20 +45,56 @@ def load_dataset(use_cuda, train_batch_size, test_batch_size, num_workers, name=
                 transforms.Resize(224),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
-                transforms.Normalize(mean=(0.5071, 0.4865, 0.4409), std=(0.2673, 0.2564, 0.2762)),
+                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
             ])
 
             transform_test = transforms.Compose([
                 transforms.Resize(224),
                 transforms.ToTensor(),
-                transforms.Normalize(mean=(0.5071, 0.4865, 0.4409), std=(0.2673, 0.2564, 0.2762)),
+                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+            ])
+        trainset = torchvision.datasets.CIFAR10(root=data_dir, train=True,
+                                                download=True, transform=transform_train)
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=train_batch_size,
+                                                  shuffle=True, **kwargs)
+        testset = torchvision.datasets.CIFAR10(root=data_dir, train=False,
+                                               download=True, transform=transform_test)
+        testloader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
+                                                 shuffle=False, **kwargs)
+    elif name == 'CIFAR100':
+        kwargs = {'num_workers': num_workers, 'pin_memory': True} if use_cuda else {}
+        transform_train = None
+        transform_test = None
+        if net_name == 'VGG16':
+            transform_train = transforms.Compose([
+                transforms.RandomCrop(32, padding=4),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize((0.5071, 0.4865, 0.4409), (0.2673, 0.2564, 0.2762)),
+            ])
+            transform_test = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize((0.5071, 0.4865, 0.4409), (0.2673, 0.2564, 0.2762)),
+            ])
+        elif net_name == 'AlexNet':
+            transform_train = transforms.Compose([
+                transforms.Resize(224),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize((0.5071, 0.4865, 0.4409), (0.2673, 0.2564, 0.2762)),
+            ])
+
+            transform_test = transforms.Compose([
+                transforms.Resize(224),
+                transforms.ToTensor(),
+                transforms.Normalize((0.5071, 0.4865, 0.4409), (0.2673, 0.2564, 0.2762)),
             ])
         trainset = torchvision.datasets.CIFAR100(root=data_dir, train=True,
-                                                 download=True, transform=transform_train)
+                                                download=True, transform=transform_train)
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=train_batch_size,
                                                   shuffle=True, **kwargs)
         testset = torchvision.datasets.CIFAR100(root=data_dir, train=False,
-                                                download=True, transform=transform_test)
+                                               download=True, transform=transform_test)
         testloader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
                                                  shuffle=False, **kwargs)
     return trainloader, testloader
