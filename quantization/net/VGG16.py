@@ -1,33 +1,27 @@
-import math
-import torch
 import torch.nn as nn
-from torch.autograd import Variable
 import torch.nn.functional as F
-import pruning.function.Prune as prune
 
 
-class VGG16(prune.PruneModule):
-    def __init__(self, num_classes=1000, init_weights=True):
+class VGG16(nn.Module):
+    def __init__(self, num_classes=1000):
         super(VGG16, self).__init__()
-        self.conv1 = prune.MaskConv2Module(3, 64, kernel_size=3, padding=1)
-        self.conv2 = prune.MaskConv2Module(64, 64, kernel_size=3, padding=1)
-        self.conv3 = prune.MaskConv2Module(64, 128, kernel_size=3, padding=1)
-        self.conv4 = prune.MaskConv2Module(128, 128, kernel_size=3, padding=1)
-        self.conv5 = prune.MaskConv2Module(128, 256, kernel_size=3, padding=1)
-        self.conv6 = prune.MaskConv2Module(256, 256, kernel_size=3, padding=1)
-        self.conv7 = prune.MaskConv2Module(256, 256, kernel_size=3, padding=1)
-        self.conv8 = prune.MaskConv2Module(256, 512, kernel_size=3, padding=1)
-        self.conv9 = prune.MaskConv2Module(512, 512, kernel_size=3, padding=1)
-        self.conv10 = prune.MaskConv2Module(512, 512, kernel_size=3, padding=1)
-        self.conv11 = prune.MaskConv2Module(512, 512, kernel_size=3, padding=1)
-        self.conv12 = prune.MaskConv2Module(512, 512, kernel_size=3, padding=1)
-        self.conv13 = prune.MaskConv2Module(512, 512, kernel_size=3, padding=1)
-        self.fc1 = prune.MaskLinearModule(512 * 7 * 7, 4096)
-        self.fc2 = prune.MaskLinearModule(4096, 4096)
-        self.fc3 = prune.MaskLinearModule(4096, num_classes)
+        self.conv1 = nn.Conv2d(3, 64, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv2d(64, 64, kernel_size=3, padding=1)
+        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
+        self.conv4 = nn.Conv2d(128, 128, kernel_size=3, padding=1)
+        self.conv5 = nn.Conv2d(128, 256, kernel_size=3, padding=1)
+        self.conv6 = nn.Conv2d(256, 256, kernel_size=3, padding=1)
+        self.conv7 = nn.Conv2d(256, 256, kernel_size=3, padding=1)
+        self.conv8 = nn.Conv2d(256, 512, kernel_size=3, padding=1)
+        self.conv9 = nn.Conv2d(512, 512, kernel_size=3, padding=1)
+        self.conv10 = nn.Conv2d(512, 512, kernel_size=3, padding=1)
+        self.conv11 = nn.Conv2d(512, 512, kernel_size=3, padding=1)
+        self.conv12 = nn.Conv2d(512, 512, kernel_size=3, padding=1)
+        self.conv13 = nn.Conv2d(512, 512, kernel_size=3, padding=1)
+        self.fc1 = nn.Linear(512 * 7 * 7, 4096)
+        self.fc2 = nn.Linear(4096, 4096)
+        self.fc3 = nn.Linear(4096, num_classes)
         self.drop_rate = [0.5, 0.5]
-        if init_weights:
-            self._initialize_weights()
 
     def forward(self, x):
         x = F.relu(self.conv1(x))
@@ -57,19 +51,6 @@ class VGG16(prune.PruneModule):
         x = self.fc3(x)
         x = F.log_softmax(x, dim=1)
         return x
-
-    def _initialize_weights(self):
-        for m in self.modules():
-            if isinstance(m, prune.MaskConv2Module):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.Linear):
-                nn.init.normal_(m.weight, 0, 0.01)
-                nn.init.constant_(m.bias, 0)
 
     def num_flat_features(self, x):
         size = x.size()[1:]

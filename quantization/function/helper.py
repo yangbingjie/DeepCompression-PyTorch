@@ -127,8 +127,8 @@ def restructure_index(index_list, conv_layer_num, max_conv_bit, max_fc_bit):
     return new_index_list, key_parameter
 
 
-def sparse_to_init(net, conv_layer_length, nz_num, sparse_conv_diff, sparse_fc_diff, codebook, max_conv_bit,
-                   max_fc_bit):
+def codebook_to_init(net, conv_layer_length, nz_num, sparse_conv_diff, sparse_fc_diff, codebook, max_conv_bit,
+                     max_fc_bit):
     state_dict = net.state_dict()
     index_list = []
     conv_layer_index = 0
@@ -152,8 +152,6 @@ def sparse_to_init(net, conv_layer_length, nz_num, sparse_conv_diff, sparse_fc_d
         codebook_index_array = codebook.codebook_index[half_index]
         while sparse_index < len(layer_diff):
             dense_index += layer_diff[sparse_index]
-            # value[dense_index] = float(codebook.codebook_value[half_index][codebook_index_array[sparse_index]])
-            # value[dense_index] = codebook.codebook_value[half_index][codebook_index_array[sparse_index]].item()
             tmp = codebook.codebook_value[half_index][codebook_index_array[sparse_index]].item()
             value[dense_index] = tmp
             index[dense_index] = int(codebook_index_array[sparse_index])
@@ -184,8 +182,6 @@ def cluster_grad(net, index_list, max_conv_bit, max_fc_bit, conv_layer_length):
         bias_grad = bias.grad
         bias_grad = bias_grad.view(-1)
         bias_index = index_list[i + 1]
-
-        half_index = int(i / 2)
 
         # Cluster grad using index, use mean of each class of grad to update weight
         cluster_bits = max_conv_bit if i < conv_layer_length else max_fc_bit
@@ -224,10 +220,12 @@ def train_codebook(key_parameter, use_cuda, max_conv_bit, max_fc_bit, conv_layer
                    codebook, index_list, testloader, net, trainloader, criterion, optimizer,
                    epoch=1, epoch_step=25, ):
     scheduler = lr_scheduler.StepLR(optimizer, step_size=epoch_step, gamma=0.5)
+    i = 0
     for epoch in range(epoch):  # loop over the dataset multiple times
         train_loss = []
         net.train()
         for inputs, labels in tqdm(trainloader):
+        # for inputs, labels in trainloader:
             # get the inputs
             if use_cuda:
                 inputs = inputs.cuda()
@@ -247,7 +245,14 @@ def train_codebook(key_parameter, use_cuda, max_conv_bit, max_fc_bit, conv_layer
             train_loss.append(loss.item())
 
             # TODO delete
-            break
+            # break
+            i += 1
+            if i % 200 == 0:
+                print('\n')
+                test(use_cuda, testloader, net)
+            if i > 2000:
+                break
+
 
         mean_train_loss = np.mean(train_loss)
         print("Epoch:", epoch, "Training Loss: %5f" % mean_train_loss)
