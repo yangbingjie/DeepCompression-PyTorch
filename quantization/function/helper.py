@@ -64,7 +64,6 @@ def load_sparse_model(net, path, fc_bits):
         fc_diff.append(int(fc_merge_diff[i] >> fc_bits))  # first 4 bits
         fc_diff.append(fc_merge_diff[i] & max_bits)  # last 4 bits
 
-
     fc_num_sum = nz_num[conv_layer_num:].sum()
     if fc_num_sum % 2 != 0:
         fc_diff = fc_diff[:fc_num_sum]
@@ -91,18 +90,16 @@ def load_sparse_model(net, path, fc_bits):
 
     return conv_layer_num, nz_num, conv_diff, fc_diff, conv_value_array, fc_value_array
 
-def sparse_to_init(net, before_path, conv_bits, fc_bits, prune_fc_bits):
+
+def sparse_to_init(net, before_path, prune_fc_bits):
     conv_layer_length, nz_num, sparse_conv_diff, sparse_fc_diff, conv_value_array, fc_value_array \
         = load_sparse_model(net, before_path, prune_fc_bits)
     state_dict = net.state_dict()
-    index_list = []
     conv_layer_index = 0
     fc_layer_index = 0
-    layer_value = []
     for i, (key, value) in enumerate(state_dict.items()):
         shape = value.shape
         value = value.view(-1)
-
         value.zero_()
         if i < conv_layer_length:
             layer_diff = sparse_conv_diff[conv_layer_index:conv_layer_index + nz_num[i]]
@@ -278,10 +275,10 @@ def train_codebook(key_parameter, use_cuda, max_conv_bit, max_fc_bit, conv_layer
             # TODO delete
             # break
             i += 1
-            if i % 200 == 0:
+            if i % 100 == 0:
                 print('\n')
                 test(use_cuda, testloader, net)
-            if i > 2000:
+            if i > 1000:
                 break
 
 

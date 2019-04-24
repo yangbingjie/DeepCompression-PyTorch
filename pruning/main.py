@@ -26,7 +26,7 @@ else:
 
 # os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 use_cuda = torch.cuda.is_available()
-CUDA_LAUNCH_BLOCKING=1
+CUDA_LAUNCH_BLOCKING = 1
 if use_cuda:
     print('Using CUDA')
 train_epoch_list = {
@@ -47,18 +47,18 @@ sensitivity_list = {
         'fc2': 0.76
     },
     'AlexNet_CIFAR10': {
-        'conv1': 0.3,
-        'conv': 0.5,
-        'fc1': 1,
-        'fc2': 1,
-        'fc3': 0.4,
+        'conv1': 0.31,  # 0.3
+        'conv': 0.52,  # 0.52
+        'fc1': 1.4,
+        'fc2': 1.4,
+        'fc3': 0.5,
     },
     'VGG16_CIFAR10': {
-        'conv1': 0.3,
-        'conv': 0.5,
-        'fc1': 2.03,
-        'fc2': 2.03,
-        'fc3': 0.5,
+        'conv1': 0.33,  # 0.32
+        'conv': 0.56,  # 0.55
+        'fc1': 2.3,
+        'fc2': 2.3,
+        'fc3': 0.6,
     },
     'AlexNet_CIFAR100': {
         'conv1': 0.3,
@@ -70,7 +70,7 @@ sensitivity_list = {
     'VGG16_CIFAR100': {
         'conv1': 0.3,
         'conv': 0.5,
-        'fc1': 2.03,
+        'fc1': 2.03,  # 2.03
         'fc2': 2.03,
         'fc3': 0.5,
     }
@@ -94,7 +94,6 @@ retrain_max_accuracy_list = {
 }
 train_max_accuracy = train_max_accuracy_list[net_and_data]
 retrain_max_accuracy = retrain_max_accuracy_list[net_and_data]
-# LeNet_MNIST: 330 3000 32000 950
 retrain_mode_list = {
     'LeNet': [
         {'mode': 'full', 'retrain_epoch': 12},
@@ -102,29 +101,19 @@ retrain_mode_list = {
         {'mode': 'full', 'retrain_epoch': 30}
     ],
     'AlexNet': [
-        {'mode': 'fc', 'retrain_epoch': 10},
-        {'mode': 'fc', 'retrain_epoch': 10},
-        {'mode': 'fc', 'retrain_epoch': 10},
-        {'mode': 'fc', 'retrain_epoch': 10},
-        {'mode': 'conv', 'retrain_epoch': 10},
-        {'mode': 'conv', 'retrain_epoch': 10},
+        {'mode': 'fc', 'retrain_epoch': 8},
+        {'mode': 'fc', 'retrain_epoch': 15},
+        {'mode': 'conv', 'retrain_epoch': 8},
+        {'mode': 'conv', 'retrain_epoch': 8},
+        {'mode': 'conv', 'retrain_epoch': 15},
     ],
     'VGG16': [
-        {'mode': 'fc', 'retrain_epoch': 20},
-        {'mode': 'fc', 'retrain_epoch': 20},
-        {'mode': 'fc', 'retrain_epoch': 20},
-        {'mode': 'fc', 'retrain_epoch': 20},
-        {'mode': 'fc', 'retrain_epoch': 20},
-        {'mode': 'fc', 'retrain_epoch': 20},
-        {'mode': 'fc', 'retrain_epoch': 20},
-        {'mode': 'fc', 'retrain_epoch': 20},
-        {'mode': 'fc', 'retrain_epoch': 20},
-        {'mode': 'fc', 'retrain_epoch': 20},
-        {'mode': 'conv', 'retrain_epoch': 20},
-        {'mode': 'conv', 'retrain_epoch': 20},
-        {'mode': 'conv', 'retrain_epoch': 20},
-        {'mode': 'conv', 'retrain_epoch': 20},
-        {'mode': 'conv', 'retrain_epoch': 20}
+        {'mode': 'fc', 'retrain_epoch': 8},
+        {'mode': 'fc', 'retrain_epoch': 8},
+        {'mode': 'fc', 'retrain_epoch': 10},
+        {'mode': 'conv', 'retrain_epoch': 8},
+        {'mode': 'conv', 'retrain_epoch': 8},
+        {'mode': 'conv', 'retrain_epoch': 10},
     ]
 }
 
@@ -151,8 +140,8 @@ lr_list = {
     'LeNet_MNIST': 1e-2,
     'AlexNet_CIFAR10': 1e-2,
     'VGG16_CIFAR10': 1e-2,
-    'AlexNet_CIFAR100': 1e-1,
-    'VGG16_CIFAR100': 1e-1
+    'AlexNet_CIFAR100': 1e-2,
+    'VGG16_CIFAR100': 1e-2
 }
 lr = lr_list[net_and_data]
 
@@ -160,7 +149,7 @@ train_milestones_list = {
     'LeNet_MNIST': [],
     'AlexNet_CIFAR10': [30],
     'VGG16_CIFAR10': [32, 50],
-    'AlexNet_CIFAR100': [],
+    'AlexNet_CIFAR100': [16],
     'VGG16_CIFAR100': []
 }
 # After pruning, the LeNet_MNIST is retrained with 1/10 of the original network's learning rate
@@ -170,10 +159,10 @@ retrain_lr_list = {
         lr / 10
     ],
     'AlexNet': [
-        lr / 10
+        lr / 1
     ],
     'VGG16': [
-        lr / 10,
+        lr / 1,
     ]
 }
 retrain_lr = retrain_lr_list[net_name]
@@ -182,10 +171,10 @@ retrain_milestones_list = {
         []
     ],
     'AlexNet': [
-        []
+        [6]
     ],
     'VGG16': [
-        []
+        [6],
     ]
 }
 retrain_milestones = retrain_milestones_list[net_name]
@@ -201,7 +190,7 @@ elif net_name == 'VGG16':
     if dataset_name == 'CIFAR10':
         net = PruneVGG16(num_classes=10)
     elif dataset_name == 'CIFAR100':
-        net = PruneAlexNet(num_classes=100)
+        net = PruneVGG16(num_classes=100)
 else:
     net = None
 
@@ -262,6 +251,4 @@ for j in range(len(retrain_mode_type)):
         net.fix_layer(net, fix_mode='conv' if retrain_mode == 'fc' else 'fc')
     helper.train(testloader, net, trainloader, criterion, optimizer, retrain_path, scheduler, retrain_max_accuracy,
                  unit, use_cuda=use_cuda, epoch=retrain_mode_type[j]['retrain_epoch'], save_sparse=True)
-    # print('====================== ReTrain End ======================')
-
-helper.save_sparse_model(net, retrain_path, unit)
+    helper.save_sparse_model(net, retrain_path, unit)

@@ -11,6 +11,8 @@ import torchvision.transforms as transforms
 def load_dataset(use_cuda, train_batch_size, test_batch_size, num_workers, name='MNIST', net_name='LeNet', data_dir='./data'):
     trainloader = None
     testloader = None
+    transform_train = None
+    transform_test = None
     if name == 'MNIST':
         kwargs = {'num_workers': num_workers, 'pin_memory': True} if use_cuda else {}
         transform = transforms.Compose([
@@ -27,8 +29,6 @@ def load_dataset(use_cuda, train_batch_size, test_batch_size, num_workers, name=
                                                  **kwargs)
     elif name == 'CIFAR10':
         kwargs = {'num_workers': num_workers, 'pin_memory': True} if use_cuda else {}
-        transform_train = None
-        transform_test = None
         if net_name == 'VGG16':
             transform_train = transforms.Compose([
                 transforms.RandomCrop(32, padding=4),
@@ -45,13 +45,13 @@ def load_dataset(use_cuda, train_batch_size, test_batch_size, num_workers, name=
                 transforms.Resize(224),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
-                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
             ])
 
             transform_test = transforms.Compose([
                 transforms.Resize(224),
                 transforms.ToTensor(),
-                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
             ])
         trainset = torchvision.datasets.CIFAR10(root=data_dir, train=True,
                                                 download=True, transform=transform_train)
@@ -63,8 +63,6 @@ def load_dataset(use_cuda, train_batch_size, test_batch_size, num_workers, name=
                                                  shuffle=False, **kwargs)
     elif name == 'CIFAR100':
         kwargs = {'num_workers': num_workers, 'pin_memory': True} if use_cuda else {}
-        transform_train = None
-        transform_test = None
         if net_name == 'VGG16':
             transform_train = transforms.Compose([
                 transforms.RandomCrop(32, padding=4),
@@ -129,8 +127,8 @@ def train(testloader, net, trainloader, criterion, optimizer, train_path, schedu
         train_loss = []
         # valid_loss = []
         net.train()
+        # for inputs, labels in tqdm(trainloader):
         for inputs, labels in trainloader:
-            # for inputs, labels in tqdm(trainloader):
             # get the inputs
             if use_cuda:
                 inputs = inputs.cuda()
@@ -258,7 +256,7 @@ def save_sparse_model(net, path, unit):
         temp = 1048576
     print('The parameters are', round(nz_num.sum() / temp, 2), unit, layer_nz_num)
     conv_diff_array = np.asarray(conv_diff_array, dtype=np.uint8)
-    fc_diff = np.asarray(fc_merge_diff, dtype=np.uint8)
+    fc_merge_diff = np.asarray(fc_merge_diff, dtype=np.uint8)
     conv_value_array = np.asarray(conv_value_array, dtype=np.float32)
     fc_value_array = np.asarray(fc_value_array, dtype=np.float32)
 
@@ -267,6 +265,6 @@ def save_sparse_model(net, path, unit):
     conv_value_array.dtype = np.uint8
     fc_value_array.dtype = np.uint8
 
-    sparse_obj = np.concatenate((nz_num, conv_diff_array, fc_diff, conv_value_array, fc_value_array))
+    sparse_obj = np.concatenate((nz_num, conv_diff_array, fc_merge_diff, conv_value_array, fc_value_array))
     sparse_obj.tofile(path)
     log.log_file_size(path, unit)

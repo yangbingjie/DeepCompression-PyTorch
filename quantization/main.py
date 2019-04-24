@@ -92,7 +92,7 @@ else:
     net = None
 
 if args.isTest:
-    helper.sparse_to_init(net, prune_result_path, quantization_conv_bits, quantization_fc_bits, prune_fc_bits)
+    helper.sparse_to_init(net, prune_result_path, prune_fc_bits)
 else:
     conv_layer_length, codebook, nz_num, conv_diff, fc_diff = share_weight(
         prune_net, prune_result_path, quantization_conv_bits, quantization_fc_bits, prune_fc_bits)
