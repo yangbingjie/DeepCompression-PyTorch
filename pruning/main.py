@@ -230,8 +230,9 @@ if net_name == 'LeNet':
     unit = 'K'
 else:
     unit = 'M'
-log.log_file_size(train_path, unit)
-helper.test(use_cuda, testloader, net)
+# TODO
+# log.log_file_size(train_path, unit)
+# helper.test(use_cuda, testloader, net)
 
 # Retrain
 for j in range(len(retrain_mode_type)):

@@ -128,6 +128,7 @@ def train(testloader, net, trainloader, criterion, optimizer, train_path, schedu
         # valid_loss = []
         net.train()
         # for inputs, labels in tqdm(trainloader):
+        i = 0
         for inputs, labels in trainloader:
             # get the inputs
             if use_cuda:
@@ -143,6 +144,11 @@ def train(testloader, net, trainloader, criterion, optimizer, train_path, schedu
             optimizer.step()  # update weight
 
             train_loss.append(loss.item())
+
+            # TODO delete
+            i += 1
+            if i > 300:
+                break
         with torch.no_grad():
             mean_train_loss = np.mean(train_loss)
             # mean_valid_loss = np.mean(valid_loss)
@@ -156,6 +162,8 @@ def train(testloader, net, trainloader, criterion, optimizer, train_path, schedu
                 else:
                     torch.save(net.state_dict(), train_path)
                 max_accuracy = accuracy
+        # TODO delete
+        break
 
 
 # We store the index difference instead of the absolute position
@@ -260,11 +268,97 @@ def save_sparse_model(net, path, unit):
     conv_value_array = np.asarray(conv_value_array, dtype=np.float32)
     fc_value_array = np.asarray(fc_value_array, dtype=np.float32)
 
+    nz_num1 = nz_num.copy()
+    conv_diff_array1 = conv_diff_array.copy()
+    fc_diff1 = fc_diff_array.copy()
+    conv_value_array1 = conv_value_array.copy()
+    fc_value_array1 = fc_value_array.copy()
+
     # Set to the same dtype uint8 to save
     nz_num.dtype = np.uint8
     conv_value_array.dtype = np.uint8
     fc_value_array.dtype = np.uint8
 
     sparse_obj = np.concatenate((nz_num, conv_diff_array, fc_merge_diff, conv_value_array, fc_value_array))
+
+
+
+
+
     sparse_obj.tofile(path)
     log.log_file_size(path, unit)
+
+    # TODO delete =========================
+
+    conv_layer_num = 0
+    fc_layer_num = 0
+    for name, x in net.named_parameters():
+        if name.endswith('mask'):
+            continue
+        if name.startswith('conv'):
+            conv_layer_num += 1
+        elif name.startswith('fc'):
+            fc_layer_num += 1
+
+    fin = open(path, 'rb')
+    nz_num = np.fromfile(fin, dtype=np.uint32, count=conv_layer_num + fc_layer_num)
+
+    conv_diff_num = sum(nz_num[:conv_layer_num])
+    conv_diff = np.fromfile(fin, dtype=np.uint8, count=conv_diff_num)
+
+    fc_merge_num = math.floor((sum(nz_num[conv_layer_num:]) + 1) / 2)
+    fc_merge_diff = np.fromfile(fin, dtype=np.uint8, count=fc_merge_num)
+
+    conv_value_array = np.fromfile(fin, dtype=np.float32, count=sum(nz_num[:conv_layer_num]))
+    fc_value_array = np.fromfile(fin, dtype=np.float32, count=sum(nz_num[conv_layer_num:]))
+
+    fc_diff_array1 = []
+    fc_bits = 4
+    max_bits = (2 ** fc_bits) - 1
+    for i in range(len(fc_merge_diff)):
+        fc_diff_array1.append(int(fc_merge_diff[i] >> fc_bits))  # first 4 bits
+        fc_diff_array1.append(fc_merge_diff[i] & max_bits)  # last 4 bits
+
+    fc_num_sum = nz_num[conv_layer_num:].sum()
+    if fc_num_sum % 2 != 0:
+        fc_diff_array1 = fc_diff_array1[:fc_num_sum]
+    fc_diff_array1 = np.asarray(fc_diff_array1, dtype=np.uint8)
+
+    print((nz_num1 != nz_num).sum())
+    print((conv_diff_array1 != conv_diff).sum())
+    print((fc_diff1 != fc_diff_array1).sum())
+    print((conv_value_array1 != conv_value_array).sum())
+    print((fc_value_array1 != fc_value_array).sum())
+
+    from quantization.net.VGG16 import VGG16
+    net1 = VGG16(num_classes=10)
+
+    state_dict = net1.state_dict()
+    conv_layer_index = 0
+    fc_layer_index = 0
+    for i, (key, value) in enumerate(state_dict.items()):
+        shape = value.shape
+        value = value.view(-1)
+        value.zero_()
+        if i < conv_layer_num:
+            layer_diff = conv_diff[conv_layer_index:conv_layer_index + nz_num[i]]
+            layer_value = conv_value_array[conv_layer_index:conv_layer_index + nz_num[i]]
+            conv_layer_index += nz_num[i]
+        else:
+            layer_diff = fc_diff_array1[fc_layer_index:fc_layer_index + nz_num[i]]
+            layer_value = fc_value_array[fc_layer_index:fc_layer_index + nz_num[i]]
+            fc_layer_index += nz_num[i]
+        dense_index = 0
+        sparse_index = 0
+        while sparse_index < len(layer_diff):
+            dense_index += layer_diff[sparse_index]
+            tmp = layer_value[sparse_index].item()
+            value[dense_index] = tmp
+            sparse_index += 1
+            dense_index += 1
+        value.reshape(shape)
+
+    trainloader, testloader = load_dataset(True, 64, 64, 10,
+                                           name='CIFAR10', net_name='AlexNet')
+    net1 = net1.cuda()
+    test(True, testloader, net1)
