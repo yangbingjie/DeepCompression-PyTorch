@@ -47,15 +47,15 @@ sensitivity_list = {
         'fc2': 0.76
     },
     'AlexNet_CIFAR10': {
-        'conv1': 0.31,  # 0.3
-        'conv': 0.52,  # 0.52
+        'conv1': 0.3,
+        'conv': 0.5,
         'fc1': 1.4,
         'fc2': 1.4,
         'fc3': 0.5,
     },
     'VGG16_CIFAR10': {
-        'conv1': 0.33,  # 0.32
-        'conv': 0.56,  # 0.55
+        'conv1': 0.33,
+        'conv': 0.56,
         'fc1': 2.3,
         'fc2': 2.3,
         'fc3': 0.6,
@@ -103,7 +103,6 @@ retrain_mode_list = {
     'AlexNet': [
         {'mode': 'fc', 'retrain_epoch': 8},
         {'mode': 'fc', 'retrain_epoch': 15},
-        {'mode': 'conv', 'retrain_epoch': 8},
         {'mode': 'conv', 'retrain_epoch': 8},
         {'mode': 'conv', 'retrain_epoch': 15},
     ],
