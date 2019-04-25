@@ -147,7 +147,7 @@ def train(testloader, net, trainloader, criterion, optimizer, train_path, schedu
 
             # TODO delete
             i += 1
-            if i > 300:
+            if i > 50:
                 break
         with torch.no_grad():
             mean_train_loss = np.mean(train_loss)
@@ -216,7 +216,7 @@ def filler_zero(value, index, max_bits):
     return new_value, new_index
 
 
-def save_sparse_model(net, path, unit):
+def save_sparse_model(net, path, unit, testloader):
     nz_num = []
     conv_diff_array = []
     fc_diff_array = []
@@ -280,13 +280,9 @@ def save_sparse_model(net, path, unit):
     fc_value_array.dtype = np.uint8
 
     sparse_obj = np.concatenate((nz_num, conv_diff_array, fc_merge_diff, conv_value_array, fc_value_array))
-
-
-
-
-
     sparse_obj.tofile(path)
     log.log_file_size(path, unit)
+
 
     # TODO delete =========================
 
@@ -324,14 +320,15 @@ def save_sparse_model(net, path, unit):
         fc_diff_array1 = fc_diff_array1[:fc_num_sum]
     fc_diff_array1 = np.asarray(fc_diff_array1, dtype=np.uint8)
 
-    print((nz_num1 != nz_num).sum())
-    print((conv_diff_array1 != conv_diff).sum())
-    print((fc_diff1 != fc_diff_array1).sum())
-    print((conv_value_array1 != conv_value_array).sum())
-    print((fc_value_array1 != fc_value_array).sum())
+    # print((nz_num1 != nz_num).sum())
+    # print((conv_diff_array1 != conv_diff).sum())
+    # print((fc_diff1 != fc_diff_array1).sum())
+    # print((conv_value_array1 != conv_value_array).sum())
+    # print((fc_value_array1 != fc_value_array).sum())
 
-    from quantization.net.VGG16 import VGG16
-    net1 = VGG16(num_classes=10)
+
+    from quantization.net.AlexNet import AlexNet
+    net1 = AlexNet(num_classes=10)
 
     state_dict = net1.state_dict()
     conv_layer_index = 0
@@ -356,9 +353,13 @@ def save_sparse_model(net, path, unit):
             value[dense_index] = tmp
             sparse_index += 1
             dense_index += 1
+
+        param0 = net.state_dict()
+        value0 = param0[key]
+        value0 = value0.view(-1)
+        print(torch.equal(value0, value))
+
         value.reshape(shape)
 
-    trainloader, testloader = load_dataset(True, 64, 64, 10,
-                                           name='CIFAR10', net_name='AlexNet')
-    net1 = net1.cuda()
-    test(True, testloader, net1)
+    # net1 = net1.cuda()
+    # test(True, testloader, net1)

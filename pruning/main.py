@@ -252,4 +252,4 @@ for j in range(len(retrain_mode_type)):
         net.fix_layer(net, fix_mode='conv' if retrain_mode == 'fc' else 'fc')
     helper.train(testloader, net, trainloader, criterion, optimizer, retrain_path, scheduler, retrain_max_accuracy,
                  unit, use_cuda=use_cuda, epoch=retrain_mode_type[j]['retrain_epoch'], save_sparse=True)
-    helper.save_sparse_model(net, retrain_path, unit)
+    helper.save_sparse_model(net, retrain_path, unit, testloader)
