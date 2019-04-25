@@ -111,6 +111,10 @@ num_workers_list = {
 num_workers = num_workers_list[net_name]
 trainloader, testloader = load_dataset(use_cuda, train_batch_size, test_batch_size, num_workers, name=dataset_name, net_name=net_name)
 
+if dataset_name == 'CIFAR100':
+    top_5 = True
+else:
+    top_5 = False
 
 if use_cuda:
     # move param and buffer to GPU
@@ -124,13 +128,13 @@ criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=lr, momentum=0.9, weight_decay=1e-5)
 
 print('Test')
-test(use_cuda, testloader, net)
+test(use_cuda, testloader, net, top_5)
 if args.isTest:
     os._exit(0)
 print('Begin fine tune')
 helper.train_codebook(key_parameter, use_cuda, max_conv_bit, max_fc_bit, conv_layer_length, codebook,
                       index_list, testloader, net, trainloader, criterion,
-                      optimizer, retrain_epoch)
+                      optimizer, retrain_epoch, top_5)
 
 helper.save_codebook(conv_layer_length, nz_num, conv_diff, fc_diff, codebook, retrain_codebook_path, net)
 

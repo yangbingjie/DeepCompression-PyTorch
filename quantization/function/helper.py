@@ -246,7 +246,7 @@ def update_codebook(net, codebook, conv_layer_length, max_conv_bit, max_fc_bit, 
 
 def train_codebook(key_parameter, use_cuda, max_conv_bit, max_fc_bit, conv_layer_length,
                    codebook, index_list, testloader, net, trainloader, criterion, optimizer,
-                   epoch=1, epoch_step=25, ):
+                   epoch=1, epoch_step=25, top_5=False):
     scheduler = lr_scheduler.StepLR(optimizer, step_size=epoch_step, gamma=0.5)
     i = 0
     for epoch in range(epoch):  # loop over the dataset multiple times
@@ -272,19 +272,19 @@ def train_codebook(key_parameter, use_cuda, max_conv_bit, max_fc_bit, conv_layer
 
             train_loss.append(loss.item())
 
-            # TODO delete
+            # TODO delete=========
             # break
             i += 1
             if i % 100 == 0:
                 print('\n')
-                test(use_cuda, testloader, net)
+                test(use_cuda, testloader, net, top_5)
             if i > 1000:
                 break
-
+            # ==================
 
         mean_train_loss = np.mean(train_loss)
         print("Epoch:", epoch, "Training Loss: %5f" % mean_train_loss)
-        test(use_cuda, testloader, net)
+        test(use_cuda, testloader, net, top_5)
         # print(list(net.parameters())[1])
         scheduler.step()
     update_codebook(net, codebook, conv_layer_length, max_conv_bit, max_fc_bit, key_parameter)

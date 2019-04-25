@@ -218,19 +218,24 @@ if use_cuda:
     # speed up slightly
     cudnn.benchmark = True
 
+
+if dataset_name == 'CIFAR100':
+    top_5 = True
+else:
+    top_5 = False
 # weight_decay is L2 regularization
 if os.path.exists(train_path):
     net.load_state_dict(torch.load(train_path))
 else:
     helper.train(testloader, net, trainloader, criterion, optimizer, train_path, scheduler, train_max_accuracy,
-                 epoch=train_epoch, use_cuda=use_cuda)
+                 epoch=train_epoch, use_cuda=use_cuda, top_5=top_5)
     torch.save(net.state_dict(), train_path)
 if net_name == 'LeNet':
     unit = 'K'
 else:
     unit = 'M'
 log.log_file_size(train_path, unit)
-helper.test(use_cuda, testloader, net)
+helper.test(use_cuda, testloader, net, top_5)
 
 # Retrain
 for j in range(len(retrain_mode_type)):
@@ -249,5 +254,5 @@ for j in range(len(retrain_mode_type)):
     if retrain_mode_type[j]['mode'] != 'full':
         net.fix_layer(net, fix_mode='conv' if retrain_mode == 'fc' else 'fc')
     helper.train(testloader, net, trainloader, criterion, optimizer, retrain_path, scheduler, retrain_max_accuracy,
-                 unit, use_cuda=use_cuda, epoch=retrain_mode_type[j]['retrain_epoch'], save_sparse=True)
+                 unit, use_cuda=use_cuda, epoch=retrain_mode_type[j]['retrain_epoch'], save_sparse=True, top_5=top_5)
     helper.save_sparse_model(net, retrain_path, unit)

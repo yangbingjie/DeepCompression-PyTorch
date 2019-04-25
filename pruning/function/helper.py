@@ -98,8 +98,21 @@ def load_dataset(use_cuda, train_batch_size, test_batch_size, num_workers, name=
     return trainloader, testloader
 
 
-def test(use_cuda, testloader, net):
-    correct = 0
+def top_k_accuracy(outputs, labels, topk=(1,)):
+    maxk = max(topk)
+    _, pred = outputs.topk(maxk, 1, True, True)
+    pred = pred.t().type_as(labels)
+    correct = pred.eq(labels.view(1, -1).expand_as(pred))
+    res = []
+    for k in topk:
+        correct_k = correct[:k].view(-1).float().sum(0).item()
+        res.append(correct_k)
+    return res
+
+
+def test(use_cuda, testloader, net, top_5=False):
+    correct_1 = 0
+    correct_5 = 0
     total = 0
     net.eval()
     with torch.no_grad():
@@ -109,19 +122,22 @@ def test(use_cuda, testloader, net):
                 images = images.cuda()
                 labels = labels.cuda()
             outputs = net(images)
-            _, predicted = torch.max(outputs.data, 1)
+            corr = top_k_accuracy(outputs, labels, topk=(1, 5))
             total += labels.size(0)
-            correct += (predicted == labels).sum().item()
-
-    accuracy = (100 * correct / total)
-    print('%.2f' % accuracy)
-    # print('Accuracy of the network on the test images: %.2f %%' % accuracy)
-    return accuracy
+            correct_1 += corr[0]
+            correct_5 += corr[1]
+    top_1_accuracy = (100 * correct_1 / total)
+    top_5_accuracy = (100 * correct_5 / total)
+    if top_5:
+        print('%.2f' % top_1_accuracy, '%.2f' % top_5_accuracy)
+    else:
+        print('%.2f' % top_1_accuracy)
+        # print('Accuracy of the network on the test images: %.2f %%' % accuracy)
+    return top_1_accuracy
 
 
 def train(testloader, net, trainloader, criterion, optimizer, train_path, scheduler, max_accuracy, unit='K',
-          save_sparse=False,
-          epoch=1, use_cuda=True, auto_save=True):
+          save_sparse=False, epoch=1, use_cuda=True, auto_save=True, top_5=False):
     for epoch in range(epoch):  # loop over the dataset multiple times
         # adjust_learning_rate(optimizer, epoch)
         train_loss = []
@@ -148,7 +164,7 @@ def train(testloader, net, trainloader, criterion, optimizer, train_path, schedu
             # mean_valid_loss = np.mean(valid_loss)
             # print("Epoch:", epoch, "Training Loss: %5f" % mean_train_loss)
             # "Valid Loss: %5f" % mean_valid_loss
-            accuracy = test(use_cuda, testloader, net)
+            accuracy = test(use_cuda, testloader, net, top_5)
             scheduler.step()
             if auto_save and accuracy > max_accuracy:
                 if save_sparse:
