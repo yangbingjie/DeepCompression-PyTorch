@@ -33,10 +33,10 @@ class AlexNet(nn.Module):
         x = F.relu(self.conv5(x))
         x = F.max_pool2d(x, kernel_size=3, stride=2)
         x = x.view(x.size(0), 9216)
-        x = F.relu(self.fc1(x))
         x = nn.functional.dropout(x, p=self.drop_rate[0], training=self.training, inplace=False)
-        x = F.relu(self.fc2(x))
+        x = F.relu(self.fc1(x))
         x = nn.functional.dropout(x, p=self.drop_rate[1], training=self.training, inplace=False)
+        x = F.relu(self.fc2(x))
         x = self.fc3(x)
         return x
 
