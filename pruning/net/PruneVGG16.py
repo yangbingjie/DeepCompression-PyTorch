@@ -49,10 +49,10 @@ class PruneVGG16(prune.PruneModule):
         x = x.view(x.size(0), -1)
         x = self.fc1(x)
         x = F.relu(x)
-        x = nn.functional.dropout(x, p=self.drop_rate[0], training=True, inplace=False)
+        x = nn.functional.dropout(x, p=self.drop_rate[0], training=self.training, inplace=False)
         x = self.fc2(x)
         x = F.relu(x)
-        x = nn.functional.dropout(x, p=self.drop_rate[1], training=True, inplace=False)
+        x = nn.functional.dropout(x, p=self.drop_rate[1], training=self.training, inplace=False)
         x = self.fc3(x)
         x = F.log_softmax(x, dim=1)
         return x

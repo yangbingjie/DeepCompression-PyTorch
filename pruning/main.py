@@ -234,18 +234,18 @@ if net_name == 'LeNet':
     unit = 'K'
 else:
     unit = 'M'
+
 log.log_file_size(train_path, unit)
 helper.test(use_cuda, testloader, net, top_5)
 
 # Retrain
 for j in range(len(retrain_mode_type)):
+	optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()),
+                          lr=retrain_lr[j] if j < len(retrain_lr) else retrain_lr[-1],
+                          weight_decay=learning_rate_decay)
     scheduler = lr_scheduler.MultiStepLR(optimizer,
                                          milestones=retrain_milestones[j] if j < len(retrain_milestones) else retrain_milestones[-1],
                                          gamma=0.1)
-    optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()),
-                          lr=retrain_lr[j] if j < len(retrain_lr) else retrain_lr[-1],
-                          weight_decay=learning_rate_decay)
-
     retrain_mode = retrain_mode_type[j]['mode']
     net.prune_layer(prune_mode=retrain_mode, use_cuda=use_cuda, sensitivity=sensitivity)
     if hasattr(net, 'drop_rate') and retrain_mode == 'fc':
@@ -256,3 +256,4 @@ for j in range(len(retrain_mode_type)):
     helper.train(testloader, net, trainloader, criterion, optimizer, retrain_path, scheduler, retrain_max_accuracy,
                  unit, use_cuda=use_cuda, epoch=retrain_mode_type[j]['retrain_epoch'], save_sparse=True, top_5=top_5)
     helper.save_sparse_model(net, retrain_path, unit)
+
