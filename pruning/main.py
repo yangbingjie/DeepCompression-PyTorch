@@ -49,8 +49,8 @@ sensitivity_list = {
     'AlexNet_CIFAR10': {
         'conv1': 0.3,
         'conv': 0.5,
-        'fc1': 0.7,  # 0.9
-        'fc2': 0.7,
+        'fc1': 2.2,  # 0.9   1   1.5    2
+        'fc2': 2.2,  #      1   1.5    2
         'fc3': 0.4,  # 0.5
     },
     'VGG16_CIFAR10': {
