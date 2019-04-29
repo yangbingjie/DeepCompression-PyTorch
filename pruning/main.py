@@ -31,10 +31,10 @@ if use_cuda:
     print('Using CUDA')
 train_epoch_list = {
     'LeNet_MNIST': 4,
-    'AlexNet_CIFAR10': 45,
+    'AlexNet_CIFAR10': 40,
     'VGG16_CIFAR10': 50,
     'AlexNet_CIFAR100': 60,
-    'VGG16_CIFAR100': 80,
+    'VGG16_CIFAR100': 90,
 }
 net_and_data = net_name + '_' + dataset_name
 train_epoch = train_epoch_list[net_and_data]
@@ -49,15 +49,15 @@ sensitivity_list = {
     'AlexNet_CIFAR10': {
         'conv1': 0.3,
         'conv': 0.5,
-        'fc1': 0.9,  # 1
-        'fc2': 0.9,
+        'fc1': 0.7,  # 0.9
+        'fc2': 0.7,
         'fc3': 0.4,  # 0.5
     },
     'VGG16_CIFAR10': {
-        'conv1': 0.3,
+        'conv1': 0.25,
         'conv': 0.4,  # 0.54
-        'fc1': 2.3,
-        'fc2': 2.3,
+        'fc1': 1.5,
+        'fc2': 1.5,
         'fc3': 0.6,
     },
     'AlexNet_CIFAR100': {
@@ -65,7 +65,7 @@ sensitivity_list = {
         'conv': 0.3,  # 0.3
         'fc1': 0.8,
         'fc2': 0.8,
-        'fc3': 0.4,
+        'fc3': 0.3,
     },
     'VGG16_CIFAR100': {
         'conv1': 0.3,
@@ -101,31 +101,19 @@ retrain_mode_list = {
         {'mode': 'full', 'retrain_epoch': 10}
     ],
     'AlexNet_CIFAR10': [
-        {'mode': 'fc', 'retrain_epoch': 8},
         {'mode': 'fc', 'retrain_epoch': 15},
-        {'mode': 'conv', 'retrain_epoch': 8},
         {'mode': 'conv', 'retrain_epoch': 15},
     ],
     'VGG16_CIFAR10': [
-        {'mode': 'conv', 'retrain_epoch': 8},
-        {'mode': 'conv', 'retrain_epoch': 8},
-        {'mode': 'conv', 'retrain_epoch': 10},
-        {'mode': 'fc', 'retrain_epoch': 8},
-        {'mode': 'fc', 'retrain_epoch': 8},
-        {'mode': 'fc', 'retrain_epoch': 10},
+        {'mode': 'fc', 'retrain_epoch': 4},
+        {'mode': 'conv', 'retrain_epoch': 16},
     ],
     'AlexNet_CIFAR100': [
         {'mode': 'conv', 'retrain_epoch': 8},
-        {'mode': 'conv', 'retrain_epoch': 8},
-        {'mode': 'fc', 'retrain_epoch': 5},
         {'mode': 'fc', 'retrain_epoch': 5},
     ],
     'VGG16_CIFAR100': [
         {'mode': 'fc', 'retrain_epoch': 8},
-        {'mode': 'fc', 'retrain_epoch': 8},
-        {'mode': 'fc', 'retrain_epoch': 10},
-        {'mode': 'conv', 'retrain_epoch': 8},
-        {'mode': 'conv', 'retrain_epoch': 8},
         {'mode': 'conv', 'retrain_epoch': 10},
     ]
 }
@@ -160,9 +148,9 @@ lr = lr_list[net_and_data]
 
 train_milestones_list = {
     'LeNet_MNIST': [],
-    'AlexNet_CIFAR10': [30, 36],
-    'VGG16_CIFAR10': [32, 40],
-    'AlexNet_CIFAR100': [32],
+    'AlexNet_CIFAR10': [30],
+    'VGG16_CIFAR10': [30],
+    'AlexNet_CIFAR100': [30],
     'VGG16_CIFAR100': []
 }
 # After pruning, the LeNet_MNIST is retrained with 1/10 of the original network's learning rate
@@ -184,10 +172,10 @@ retrain_milestones_list = {
         []
     ],
     'AlexNet': [
-        [6]
+        []
     ],
     'VGG16': [
-        [6],
+        [],
     ]
 }
 retrain_milestones = retrain_milestones_list[net_name]
@@ -239,10 +227,9 @@ else:
 # weight_decay is L2 regularization
 if not os.path.exists(train_path):
     have_save = helper.train(testloader, net, trainloader, criterion, optimizer, train_path, scheduler,
-                             train_max_accuracy,
+                             train_max_accuracy,auto_save=False,
                              epoch=train_epoch, use_cuda=use_cuda, top_5=top_5)
-    if not have_save:
-        torch.save(net.state_dict(), train_path)
+    torch.save(net.state_dict(), train_path)
 net.load_state_dict(torch.load(train_path))
 if net_name == 'LeNet':
     unit = 'K'
