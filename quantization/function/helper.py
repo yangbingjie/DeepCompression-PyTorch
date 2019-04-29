@@ -1,7 +1,7 @@
-import torch.optim.lr_scheduler as lr_scheduler
+import math
+import time
 import torch
 import numpy as np
-import math
 from tqdm import tqdm
 from pruning.function.helper import test
 
@@ -196,9 +196,8 @@ def codebook_to_init(net, conv_layer_length, nz_num, sparse_conv_diff, sparse_fc
 
 def cluster_grad(net, index_list, max_conv_bit, max_fc_bit, conv_layer_length):
     params = list(net.parameters())
-    # print('========Start========')
+    # print('================')
     for i in range(0, len(params), 2):
-        # start = time.clock()
         param = params[i]
         grad_shape = param.grad.shape
         grad = param.grad
@@ -211,6 +210,7 @@ def cluster_grad(net, index_list, max_conv_bit, max_fc_bit, conv_layer_length):
         bias_grad = bias_grad.view(-1)
         bias_index = index_list[i + 1]
 
+        # start = time.clock()
         # Cluster grad using index, use mean of each class of grad to update weight
         cluster_bits = max_conv_bit if i < conv_layer_length else max_fc_bit
         for j in range(cluster_bits):
@@ -218,6 +218,8 @@ def cluster_grad(net, index_list, max_conv_bit, max_fc_bit, conv_layer_length):
             sum_grad += bias_grad[bias_index[j]].sum()
             grad[index[j]] = sum_grad
             bias_grad[bias_index[j]] = sum_grad
+        # end = time.clock()
+        # print(round(end - start, 5))
 
         grad = grad.view(grad_shape)
         params[i].grad = grad.clone()
@@ -246,9 +248,7 @@ def update_codebook(net, codebook, conv_layer_length, max_conv_bit, max_fc_bit, 
 
 def train_codebook(key_parameter, use_cuda, max_conv_bit, max_fc_bit, conv_layer_length,
                    codebook, index_list, testloader, net, trainloader, criterion, optimizer,
-                   epoch=1, epoch_step=25, top_5=False):
-    scheduler = lr_scheduler.StepLR(optimizer, step_size=epoch_step, gamma=0.5)
-    i = 0
+                   scheduler, epoch=1, top_5=False):
     for epoch in range(epoch):  # loop over the dataset multiple times
         train_loss = []
         net.train()
@@ -269,23 +269,21 @@ def train_codebook(key_parameter, use_cuda, max_conv_bit, max_fc_bit, conv_layer
             cluster_grad(net, index_list, max_conv_bit, max_fc_bit, conv_layer_length)
 
             optimizer.step()  # update weight
-
             train_loss.append(loss.item())
 
-            # TODO delete=========
-            # break
-            i += 1
-            if i % 100 == 0:
-                print('\n')
-                test(use_cuda, testloader, net, top_5)
-            if i > 1000:
-                break
-            # ==================
+            # # TODO delete=========
+            # # break
+            # i += 1
+            # if i % 100 == 0:
+            #     print('\n')
+            #     test(use_cuda, testloader, net, top_5)
+            # if i > 2000:
+            #     break
+            # # ==================
 
-        mean_train_loss = np.mean(train_loss)
-        print("Epoch:", epoch, "Training Loss: %5f" % mean_train_loss)
+        # mean_train_loss = np.mean(train_loss)
+        # print("Epoch:", epoch, "Training Loss: %5f" % mean_train_loss)
         test(use_cuda, testloader, net, top_5)
-        # print(list(net.parameters())[1])
         scheduler.step()
     update_codebook(net, codebook, conv_layer_length, max_conv_bit, max_fc_bit, key_parameter)
 

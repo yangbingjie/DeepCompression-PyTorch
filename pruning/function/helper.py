@@ -8,93 +8,83 @@ from scipy.sparse import csr_matrix
 import torchvision.transforms as transforms
 
 
-def load_dataset(use_cuda, train_batch_size, test_batch_size, num_workers, name='MNIST', net_name='LeNet', data_dir='./data'):
-    trainloader = None
-    testloader = None
+def load_dataset(use_cuda, train_batch_size, test_batch_size, num_workers, name='MNIST', net_name='LeNet',
+                 data_dir='./data'):
+    train_set = None
+    test_set = None
     transform_train = None
     transform_test = None
+    kwargs = {'num_workers': num_workers, 'pin_memory': True} if use_cuda else {}
     if name == 'MNIST':
-        kwargs = {'num_workers': num_workers, 'pin_memory': True} if use_cuda else {}
         transform = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Normalize((0.1307,), (0.3081,))
+            transforms.Normalize((0.1307,), (0.3079,))
         ])
-        trainset = torchvision.datasets.MNIST(root=data_dir, train=True,
+        train_set = torchvision.datasets.MNIST(root=data_dir, train=True,
+                                               download=True, transform=transform)
+        test_set = torchvision.datasets.MNIST(root=data_dir, train=False,
                                               download=True, transform=transform)
-        testset = torchvision.datasets.MNIST(root=data_dir, train=False,
-                                             download=True, transform=transform)
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=train_batch_size,
-                                                  shuffle=True, **kwargs)
-        testloader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
-                                                 **kwargs)
     elif name == 'CIFAR10':
-        kwargs = {'num_workers': num_workers, 'pin_memory': True} if use_cuda else {}
         if net_name == 'VGG16':
             transform_train = transforms.Compose([
                 transforms.RandomCrop(32, padding=4),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
-                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2467, 0.2431, 0.2611)),
             ])
             transform_test = transforms.Compose([
                 transforms.ToTensor(),
-                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2467, 0.2431, 0.2611)),
             ])
         elif net_name == 'AlexNet':
             transform_train = transforms.Compose([
                 transforms.Resize(224),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
-                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2406, 0.2371, 0.2555)),
             ])
 
             transform_test = transforms.Compose([
                 transforms.Resize(224),
                 transforms.ToTensor(),
-                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2406, 0.2371, 0.2555)),
             ])
-        trainset = torchvision.datasets.CIFAR10(root=data_dir, train=True,
-                                                download=True, transform=transform_train)
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=train_batch_size,
-                                                  shuffle=True, **kwargs)
-        testset = torchvision.datasets.CIFAR10(root=data_dir, train=False,
-                                               download=True, transform=transform_test)
-        testloader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
-                                                 shuffle=False, **kwargs)
+        train_set = torchvision.datasets.CIFAR10(root=data_dir, train=True,
+                                                 download=True, transform=transform_train)
+        test_set = torchvision.datasets.CIFAR10(root=data_dir, train=False,
+                                                download=True, transform=transform_test)
     elif name == 'CIFAR100':
-        kwargs = {'num_workers': num_workers, 'pin_memory': True} if use_cuda else {}
         if net_name == 'VGG16':
             transform_train = transforms.Compose([
                 transforms.RandomCrop(32, padding=4),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
-                transforms.Normalize((0.5071, 0.4865, 0.4409), (0.2673, 0.2564, 0.2762)),
+                transforms.Normalize((0.4381, 0.4178, 0.3773), (0.3002, 0.2870, 0.2933)),
             ])
             transform_test = transforms.Compose([
                 transforms.ToTensor(),
-                transforms.Normalize((0.5071, 0.4865, 0.4409), (0.2673, 0.2564, 0.2762)),
+                transforms.Normalize((0.4381, 0.4178, 0.3773), (0.3002, 0.2870, 0.2933)),
             ])
         elif net_name == 'AlexNet':
             transform_train = transforms.Compose([
                 transforms.Resize(224),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
-                transforms.Normalize((0.5071, 0.4865, 0.4409), (0.2673, 0.2564, 0.2762)),
+                transforms.Normalize((0.4381, 0.4178, 0.3773), (0.3002, 0.2870, 0.2933)),
             ])
-
             transform_test = transforms.Compose([
                 transforms.Resize(224),
                 transforms.ToTensor(),
-                transforms.Normalize((0.5071, 0.4865, 0.4409), (0.2673, 0.2564, 0.2762)),
+                transforms.Normalize((0.4381, 0.4178, 0.3773), (0.3002, 0.2870, 0.2933)),
             ])
-        trainset = torchvision.datasets.CIFAR100(root=data_dir, train=True,
-                                                download=True, transform=transform_train)
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=train_batch_size,
-                                                  shuffle=True, **kwargs)
-        testset = torchvision.datasets.CIFAR100(root=data_dir, train=False,
-                                               download=True, transform=transform_test)
-        testloader = torch.utils.data.DataLoader(testset, batch_size=test_batch_size,
-                                                 shuffle=False, **kwargs)
+        train_set = torchvision.datasets.CIFAR100(root=data_dir, train=True,
+                                                  download=True, transform=transform_train)
+        test_set = torchvision.datasets.CIFAR100(root=data_dir, train=False,
+                                                 download=True, transform=transform_test)
+    trainloader = torch.utils.data.DataLoader(train_set, batch_size=train_batch_size,
+                                              shuffle=True, **kwargs)
+    testloader = torch.utils.data.DataLoader(test_set, batch_size=test_batch_size,
+                                             shuffle=False, **kwargs)
     return trainloader, testloader
 
 
@@ -138,6 +128,7 @@ def test(use_cuda, testloader, net, top_5=False):
 
 def train(testloader, net, trainloader, criterion, optimizer, train_path, scheduler, max_accuracy, unit='K',
           save_sparse=False, epoch=1, use_cuda=True, auto_save=True, top_5=False):
+    have_save = False
     for epoch in range(epoch):  # loop over the dataset multiple times
         # adjust_learning_rate(optimizer, epoch)
         train_loss = []
@@ -161,13 +152,8 @@ def train(testloader, net, trainloader, criterion, optimizer, train_path, schedu
 
             train_loss.append(loss.item())
 
-            # TODO delete
-            i += 1
-            if i > 50:
-                break
         with torch.no_grad():
-            mean_train_loss = np.mean(train_loss)
-            # mean_valid_loss = np.mean(valid_loss)
+            # mean_train_loss = np.mean(train_loss)
             # print("Epoch:", epoch, "Training Loss: %5f" % mean_train_loss)
             # "Valid Loss: %5f" % mean_valid_loss
             accuracy = test(use_cuda, testloader, net, top_5)
@@ -178,8 +164,8 @@ def train(testloader, net, trainloader, criterion, optimizer, train_path, schedu
                 else:
                     torch.save(net.state_dict(), train_path)
                 max_accuracy = accuracy
-        # TODO delete
-        break
+                have_save = True
+    return have_save
 
 
 # We store the index difference instead of the absolute position
@@ -232,7 +218,7 @@ def filler_zero(value, index, max_bits):
     return new_value, new_index
 
 
-def save_sparse_model(net, path, unit, testloader):
+def save_sparse_model(net, path, unit):
     nz_num = []
     conv_diff_array = []
     fc_diff_array = []
@@ -284,12 +270,6 @@ def save_sparse_model(net, path, unit, testloader):
     conv_value_array = np.asarray(conv_value_array, dtype=np.float32)
     fc_value_array = np.asarray(fc_value_array, dtype=np.float32)
 
-    nz_num1 = nz_num.copy()
-    conv_diff_array1 = conv_diff_array.copy()
-    fc_diff1 = fc_diff_array.copy()
-    conv_value_array1 = conv_value_array.copy()
-    fc_value_array1 = fc_value_array.copy()
-
     # Set to the same dtype uint8 to save
     nz_num.dtype = np.uint8
     conv_value_array.dtype = np.uint8
@@ -298,84 +278,3 @@ def save_sparse_model(net, path, unit, testloader):
     sparse_obj = np.concatenate((nz_num, conv_diff_array, fc_merge_diff, conv_value_array, fc_value_array))
     sparse_obj.tofile(path)
     log.log_file_size(path, unit)
-
-
-    # TODO delete =========================
-
-    conv_layer_num = 0
-    fc_layer_num = 0
-    for name, x in net.named_parameters():
-        if name.endswith('mask'):
-            continue
-        if name.startswith('conv'):
-            conv_layer_num += 1
-        elif name.startswith('fc'):
-            fc_layer_num += 1
-
-    fin = open(path, 'rb')
-    nz_num = np.fromfile(fin, dtype=np.uint32, count=conv_layer_num + fc_layer_num)
-
-    conv_diff_num = sum(nz_num[:conv_layer_num])
-    conv_diff = np.fromfile(fin, dtype=np.uint8, count=conv_diff_num)
-
-    fc_merge_num = math.floor((sum(nz_num[conv_layer_num:]) + 1) / 2)
-    fc_merge_diff = np.fromfile(fin, dtype=np.uint8, count=fc_merge_num)
-
-    conv_value_array = np.fromfile(fin, dtype=np.float32, count=sum(nz_num[:conv_layer_num]))
-    fc_value_array = np.fromfile(fin, dtype=np.float32, count=sum(nz_num[conv_layer_num:]))
-
-    fc_diff_array1 = []
-    fc_bits = 4
-    max_bits = (2 ** fc_bits) - 1
-    for i in range(len(fc_merge_diff)):
-        fc_diff_array1.append(int(fc_merge_diff[i] >> fc_bits))  # first 4 bits
-        fc_diff_array1.append(fc_merge_diff[i] & max_bits)  # last 4 bits
-
-    fc_num_sum = nz_num[conv_layer_num:].sum()
-    if fc_num_sum % 2 != 0:
-        fc_diff_array1 = fc_diff_array1[:fc_num_sum]
-    fc_diff_array1 = np.asarray(fc_diff_array1, dtype=np.uint8)
-
-    # print((nz_num1 != nz_num).sum())
-    # print((conv_diff_array1 != conv_diff).sum())
-    # print((fc_diff1 != fc_diff_array1).sum())
-    # print((conv_value_array1 != conv_value_array).sum())
-    # print((fc_value_array1 != fc_value_array).sum())
-
-
-    from quantization.net.AlexNet import AlexNet
-    net1 = AlexNet(num_classes=10)
-
-    state_dict = net1.state_dict()
-    conv_layer_index = 0
-    fc_layer_index = 0
-    for i, (key, value) in enumerate(state_dict.items()):
-        shape = value.shape
-        value = value.view(-1)
-        value.zero_()
-        if i < conv_layer_num:
-            layer_diff = conv_diff[conv_layer_index:conv_layer_index + nz_num[i]]
-            layer_value = conv_value_array[conv_layer_index:conv_layer_index + nz_num[i]]
-            conv_layer_index += nz_num[i]
-        else:
-            layer_diff = fc_diff_array1[fc_layer_index:fc_layer_index + nz_num[i]]
-            layer_value = fc_value_array[fc_layer_index:fc_layer_index + nz_num[i]]
-            fc_layer_index += nz_num[i]
-        dense_index = 0
-        sparse_index = 0
-        while sparse_index < len(layer_diff):
-            dense_index += layer_diff[sparse_index]
-            tmp = layer_value[sparse_index].item()
-            value[dense_index] = tmp
-            sparse_index += 1
-            dense_index += 1
-
-        param0 = net.state_dict()
-        value0 = param0[key]
-        value0 = value0.view(-1)
-        print(torch.equal(value0, value))
-
-        value.reshape(shape)
-
-    # net1 = net1.cuda()
-    # test(True, testloader, net1)

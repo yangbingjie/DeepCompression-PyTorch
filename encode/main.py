@@ -10,7 +10,7 @@ import encode.function.encode as encode
 import json
 
 use_cuda = False  # torch.cuda.is_available()
-quantization_result_path = './quantization/result/LeNet_codebook'
+quantization_result_path = './quantization/result/LeNet_codebook.pth'
 encode_huffman_root = './encode/result/'
 if not os.path.exists(encode_huffman_root):
     os.mkdir(encode_huffman_root)
