@@ -24,17 +24,17 @@ if args.data:
 else:
     dataset_name = 'CIFAR10'
 
-# os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 use_cuda = torch.cuda.is_available()
 CUDA_LAUNCH_BLOCKING = 1
 if use_cuda:
     print('Using CUDA')
 train_epoch_list = {
     'LeNet_MNIST': 4,
-    'AlexNet_CIFAR10': 40,
-    'VGG16_CIFAR10': 50,
-    'AlexNet_CIFAR100': 60,
-    'VGG16_CIFAR100': 90,
+    'AlexNet_CIFAR10': 50,
+    'VGG16_CIFAR10': 60,
+    'AlexNet_CIFAR100': 50,
+    'VGG16_CIFAR100': 100,
 }
 net_and_data = net_name + '_' + dataset_name
 train_epoch = train_epoch_list[net_and_data]
@@ -49,23 +49,24 @@ sensitivity_list = {
     'AlexNet_CIFAR10': {
         'conv1': 0.3,
         'conv': 0.5,
-        'fc1': 2.2,  # 0.9   1   1.5    2
-        'fc2': 2.2,  #      1   1.5    2
-        'fc3': 0.4,  # 0.5
+        'fc1': 0.9,  # 1.2
+        'fc2': 0.9,
+        'fc3': 0.5,
+
     },
     'VGG16_CIFAR10': {
-        'conv1': 0.25,
-        'conv': 0.4,  # 0.54
-        'fc1': 1.5,
-        'fc2': 1.5,
+        'conv1': 0.3,  # 90.18
+        'conv': 0.56,
+        'fc1': 1.9,  # 2.3
+        'fc2': 1.9,
         'fc3': 0.6,
     },
     'AlexNet_CIFAR100': {
-        'conv1': 0.1,  # 0.25
-        'conv': 0.3,  # 0.3
-        'fc1': 0.8,
-        'fc2': 0.8,
-        'fc3': 0.3,
+        'conv1': 0.3,
+        'conv': 0.5,
+        'fc1': 1.1,
+        'fc2': 1.1,
+        'fc3': 0.4,
     },
     'VGG16_CIFAR100': {
         'conv1': 0.3,
@@ -77,6 +78,27 @@ sensitivity_list = {
 }
 sensitivity = sensitivity_list[net_and_data]
 print(sensitivity)
+retrain_milestones_list = {
+    'LeNet_MNIST': [
+        []
+    ],
+    'AlexNet_CIFAR10': [
+        []
+    ],
+    'VGG16_CIFAR10': [
+        [2],
+        [8],
+    ],
+    'AlexNet_CIFAR100': [
+        [5]
+    ],
+    'VGG16_CIFAR100': [
+        [5, 10],
+        [1, 6]
+    ]
+}
+retrain_milestones = retrain_milestones_list[net_and_data]
+
 # When accuracy in test dataset is more than max_accuracy, save the model
 train_max_accuracy_list = {
     'LeNet_MNIST': 99.15,
@@ -102,17 +124,24 @@ retrain_mode_list = {
     ],
     'AlexNet_CIFAR10': [
         {'mode': 'fc', 'retrain_epoch': 15},
+        {'mode': 'fc', 'retrain_epoch': 15},
+        {'mode': 'conv', 'retrain_epoch': 8},
         {'mode': 'conv', 'retrain_epoch': 15},
     ],
     'VGG16_CIFAR10': [
-        {'mode': 'fc', 'retrain_epoch': 4},
-        {'mode': 'conv', 'retrain_epoch': 16},
+        {'mode': 'fc', 'retrain_epoch': 7},
+        {'mode': 'fc', 'retrain_epoch': 10},
+        {'mode': 'fc', 'retrain_epoch': 10},
+        {'mode': 'conv', 'retrain_epoch': 10},
     ],
     'AlexNet_CIFAR100': [
         {'mode': 'conv', 'retrain_epoch': 8},
+        {'mode': 'conv', 'retrain_epoch': 8},
+        {'mode': 'fc', 'retrain_epoch': 5},
         {'mode': 'fc', 'retrain_epoch': 5},
     ],
     'VGG16_CIFAR100': [
+        {'mode': 'fc', 'retrain_epoch': 8},
         {'mode': 'fc', 'retrain_epoch': 8},
         {'mode': 'conv', 'retrain_epoch': 10},
     ]
@@ -149,9 +178,9 @@ lr = lr_list[net_and_data]
 train_milestones_list = {
     'LeNet_MNIST': [],
     'AlexNet_CIFAR10': [30],
-    'VGG16_CIFAR10': [30],
-    'AlexNet_CIFAR100': [30],
-    'VGG16_CIFAR100': []
+    'VGG16_CIFAR10': [32, 50],
+    'AlexNet_CIFAR100': [16],
+    'VGG16_CIFAR100': [32, 50]
 }
 # After pruning, the LeNet_MNIST is retrained with 1/10 of the original network's learning rate
 # After pruning, the AlexNet_CIFAR10 is retrained with 1/100 of the original network's learning rate
@@ -167,18 +196,6 @@ retrain_lr_list = {
     ]
 }
 retrain_lr = retrain_lr_list[net_name]
-retrain_milestones_list = {
-    'LeNet': [
-        []
-    ],
-    'AlexNet': [
-        []
-    ],
-    'VGG16': [
-        [],
-    ]
-}
-retrain_milestones = retrain_milestones_list[net_name]
 
 if net_name == 'LeNet':
     net = PruneLeNet5()
@@ -253,10 +270,12 @@ for j in range(len(retrain_mode_type)):
     if hasattr(net, 'drop_rate') and retrain_mode == 'fc':
         net.compute_dropout_rate()
     print('====================== Retrain', j, retrain_mode, 'Start ==================')
+    helper.test(use_cuda, testloader, net, top_5)
+    print('-----')
     if retrain_mode_type[j]['mode'] != 'full':
         net.fix_layer(net, fix_mode='conv' if retrain_mode == 'fc' else 'fc')
     have_save = helper.train(testloader, net, trainloader, criterion, optimizer, retrain_path, scheduler,
-                             retrain_max_accuracy,unit, use_cuda=use_cuda,top_5=top_5,
+                             retrain_max_accuracy,unit, use_cuda=use_cuda, top_5=top_5,
                              epoch=retrain_mode_type[j]['retrain_epoch'], save_sparse=True)
     if not have_save:
         helper.save_sparse_model(net, retrain_path, unit)

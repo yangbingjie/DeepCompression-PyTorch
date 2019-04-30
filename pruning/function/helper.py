@@ -18,7 +18,7 @@ def load_dataset(use_cuda, train_batch_size, test_batch_size, num_workers, name=
     if name == 'MNIST':
         transform = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Normalize((0.1307,), (0.3079,))
+            transforms.Normalize((0.1307,), (0.3081,))
         ])
         train_set = torchvision.datasets.MNIST(root=data_dir, train=True,
                                                download=True, transform=transform)
@@ -30,24 +30,24 @@ def load_dataset(use_cuda, train_batch_size, test_batch_size, num_workers, name=
                 transforms.RandomCrop(32, padding=4),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
-                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2467, 0.2431, 0.2611)),
+                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
             ])
             transform_test = transforms.Compose([
                 transforms.ToTensor(),
-                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2467, 0.2431, 0.2611)),
+                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
             ])
         elif net_name == 'AlexNet':
             transform_train = transforms.Compose([
                 transforms.Resize(224),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
-                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2406, 0.2371, 0.2555)),
+                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
             ])
 
             transform_test = transforms.Compose([
                 transforms.Resize(224),
                 transforms.ToTensor(),
-                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2406, 0.2371, 0.2555)),
+                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
             ])
         train_set = torchvision.datasets.CIFAR10(root=data_dir, train=True,
                                                  download=True, transform=transform_train)
@@ -59,23 +59,23 @@ def load_dataset(use_cuda, train_batch_size, test_batch_size, num_workers, name=
                 transforms.RandomCrop(32, padding=4),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
-                transforms.Normalize((0.4381, 0.4178, 0.3773), (0.3002, 0.2870, 0.2933)),
+                transforms.Normalize((0.5071, 0.4865, 0.4409), (0.2673, 0.2564, 0.2762)),
             ])
             transform_test = transforms.Compose([
                 transforms.ToTensor(),
-                transforms.Normalize((0.4381, 0.4178, 0.3773), (0.3002, 0.2870, 0.2933)),
+                transforms.Normalize((0.5071, 0.4865, 0.4409), (0.2673, 0.2564, 0.2762)),
             ])
         elif net_name == 'AlexNet':
             transform_train = transforms.Compose([
                 transforms.Resize(224),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
-                transforms.Normalize((0.4381, 0.4178, 0.3773), (0.3002, 0.2870, 0.2933)),
+                transforms.Normalize((0.5071, 0.4865, 0.4409), (0.2673, 0.2564, 0.2762)),
             ])
             transform_test = transforms.Compose([
                 transforms.Resize(224),
                 transforms.ToTensor(),
-                transforms.Normalize((0.4381, 0.4178, 0.3773), (0.3002, 0.2870, 0.2933)),
+                transforms.Normalize((0.5071, 0.4865, 0.4409), (0.2673, 0.2564, 0.2762)),
             ])
         train_set = torchvision.datasets.CIFAR100(root=data_dir, train=True,
                                                   download=True, transform=transform_train)
