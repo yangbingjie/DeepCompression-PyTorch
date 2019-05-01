@@ -48,10 +48,10 @@ sensitivity_list = {
     },
     'AlexNet_CIFAR10': {
         'conv1': 0.3,
-        'conv': 0.5,
-        'fc1': 0.8,  # 1.2
-        'fc2': 0.8,
-        'fc3': 0.5,
+        'conv': 0.55,
+        'fc1': 1.1,  # 1.05 89.17%  1.06 89.19% 1.07 89.19% 1.08 89.17% 1.09 89.23% 1.1 89.24%
+        'fc2': 1.1,
+        'fc3': 0.6,
 
     },
     'VGG16_CIFAR10': {
@@ -83,10 +83,7 @@ retrain_milestones_list = {
         []
     ],
     'AlexNet_CIFAR10': [
-        [],
-        [2, 10],
-        [2],
-        []
+        [5],
     ],
     'VGG16_CIFAR10': [
         [2], [8], [8], [8], [8],
@@ -113,7 +110,7 @@ train_max_accuracy_list = {
 }
 retrain_max_accuracy_list = {
     'LeNet_MNIST': 99.25,
-    'AlexNet_CIFAR10': 90,
+    'AlexNet_CIFAR10': 89.32,
     'VGG16_CIFAR10': 90.27,
     'AlexNet_CIFAR100': 90,
     'VGG16_CIFAR100': 91
@@ -127,11 +124,12 @@ retrain_mode_list = {
         {'mode': 'full', 'retrain_epoch': 10}
     ],
     'AlexNet_CIFAR10': [
-        {'mode': 'fc', 'retrain_epoch': 15},
-        {'mode': 'fc', 'retrain_epoch': 15},
-        {'mode': 'fc', 'retrain_epoch': 15},
-        {'mode': 'conv', 'retrain_epoch': 8},
-        {'mode': 'conv', 'retrain_epoch': 15},
+        {'mode': 'fc', 'retrain_epoch': 10},
+        {'mode': 'fc', 'retrain_epoch': 10},
+        {'mode': 'fc', 'retrain_epoch': 10},
+        {'mode': 'fc', 'retrain_epoch': 10},
+        {'mode': 'conv', 'retrain_epoch': 10},
+        {'mode': 'conv', 'retrain_epoch': 20},
     ],
     'VGG16_CIFAR10': [
         {'mode': 'fc', 'retrain_epoch': 10},
