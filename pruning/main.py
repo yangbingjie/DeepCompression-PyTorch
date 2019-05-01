@@ -49,16 +49,16 @@ sensitivity_list = {
     'AlexNet_CIFAR10': {
         'conv1': 0.3,
         'conv': 0.5,
-        'fc1': 0.9,  # 1.2
-        'fc2': 0.9,
+        'fc1': 0.8,  # 1.2
+        'fc2': 0.8,
         'fc3': 0.5,
 
     },
     'VGG16_CIFAR10': {
         'conv1': 0.3,  # 90.18
-        'conv': 0.56,
-        'fc1': 1.9,  # 2.3
-        'fc2': 1.9,
+        'conv': 0.55,
+        'fc1': 2.02,  # 2.3
+        'fc2': 2.02,
         'fc3': 0.6,
     },
     'AlexNet_CIFAR100': {
@@ -83,11 +83,15 @@ retrain_milestones_list = {
         []
     ],
     'AlexNet_CIFAR10': [
+        [],
+        [2, 10],
+        [2],
         []
     ],
     'VGG16_CIFAR10': [
-        [2],
-        [8],
+        [2], [8], [8], [8], [8],
+        [8], [8], [8], [8], [8],
+        [2, 8],
     ],
     'AlexNet_CIFAR100': [
         [5]
@@ -110,7 +114,7 @@ train_max_accuracy_list = {
 retrain_max_accuracy_list = {
     'LeNet_MNIST': 99.25,
     'AlexNet_CIFAR10': 90,
-    'VGG16_CIFAR10': 91,
+    'VGG16_CIFAR10': 90.27,
     'AlexNet_CIFAR100': 90,
     'VGG16_CIFAR100': 91
 }
@@ -125,14 +129,24 @@ retrain_mode_list = {
     'AlexNet_CIFAR10': [
         {'mode': 'fc', 'retrain_epoch': 15},
         {'mode': 'fc', 'retrain_epoch': 15},
+        {'mode': 'fc', 'retrain_epoch': 15},
         {'mode': 'conv', 'retrain_epoch': 8},
         {'mode': 'conv', 'retrain_epoch': 15},
     ],
     'VGG16_CIFAR10': [
-        {'mode': 'fc', 'retrain_epoch': 7},
+        {'mode': 'fc', 'retrain_epoch': 10},
+        {'mode': 'fc', 'retrain_epoch': 10},
+        {'mode': 'fc', 'retrain_epoch': 10},
+        {'mode': 'fc', 'retrain_epoch': 10},
+        {'mode': 'fc', 'retrain_epoch': 10},
+        {'mode': 'fc', 'retrain_epoch': 10},
+        {'mode': 'fc', 'retrain_epoch': 10},
+        {'mode': 'fc', 'retrain_epoch': 10},
         {'mode': 'fc', 'retrain_epoch': 10},
         {'mode': 'fc', 'retrain_epoch': 10},
         {'mode': 'conv', 'retrain_epoch': 10},
+        {'mode': 'conv', 'retrain_epoch': 10},
+        {'mode': 'conv', 'retrain_epoch': 20},
     ],
     'AlexNet_CIFAR100': [
         {'mode': 'conv', 'retrain_epoch': 8},
