@@ -48,11 +48,10 @@ sensitivity_list = {
     },
     'AlexNet_CIFAR10': {
         'conv1': 0.3,
-        'conv': 0.55,
-        'fc1': 1.1,  # 1.05 89.17%  1.06 89.19% 1.07 89.19% 1.08 89.17% 1.09 89.23% 1.1 89.24%
-        'fc2': 1.1,
-        'fc3': 0.6,
-
+        'conv': 0.5,
+        'fc1': 2.02,
+        'fc2': 2.02,
+        'fc3': 0.5,
     },
     'VGG16_CIFAR10': {
         'conv1': 0.3,  # 90.18
@@ -83,7 +82,7 @@ retrain_milestones_list = {
         []
     ],
     'AlexNet_CIFAR10': [
-        [5],
+        [4], [6],
     ],
     'VGG16_CIFAR10': [
         [2], [8], [8], [8], [8],
@@ -128,8 +127,10 @@ retrain_mode_list = {
         {'mode': 'fc', 'retrain_epoch': 10},
         {'mode': 'fc', 'retrain_epoch': 10},
         {'mode': 'fc', 'retrain_epoch': 10},
+        {'mode': 'fc', 'retrain_epoch': 10},
+        {'mode': 'fc', 'retrain_epoch': 10},
         {'mode': 'conv', 'retrain_epoch': 10},
-        {'mode': 'conv', 'retrain_epoch': 20},
+        {'mode': 'conv', 'retrain_epoch': 10},
     ],
     'VGG16_CIFAR10': [
         {'mode': 'fc', 'retrain_epoch': 10},
