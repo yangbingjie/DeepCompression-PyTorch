@@ -278,7 +278,7 @@ def train_codebook(key_parameter, use_cuda, max_conv_bit, max_fc_bit, conv_layer
             if i % 100 == 0:
                 print('\n')
                 test(use_cuda, testloader, net, top_5)
-            if i > 2000:
+            if i > 20000:
                 break
             # ==================
 

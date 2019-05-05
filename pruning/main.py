@@ -31,7 +31,7 @@ if use_cuda:
     print('Using CUDA')
 train_epoch_list = {
     'LeNet_MNIST': 4,
-    'AlexNet_CIFAR10': 50,
+    'AlexNet_CIFAR10': 28,
     'VGG16_CIFAR10': 60,
     'AlexNet_CIFAR100': 50,
     'VGG16_CIFAR100': 100,
@@ -48,10 +48,10 @@ sensitivity_list = {
     },
     'AlexNet_CIFAR10': {
         'conv1': 0.3,
-        'conv': 0.5,
-        'fc1': 2.02,
-        'fc2': 2.02,
-        'fc3': 0.5,
+        'conv': 0.49,
+        'fc1': 1.3,
+        'fc2': 1.3,
+        'fc3': 0.4,
     },
     'VGG16_CIFAR10': {
         'conv1': 0.3,  # 90.18
@@ -82,7 +82,7 @@ retrain_milestones_list = {
         []
     ],
     'AlexNet_CIFAR10': [
-        [4], [6],
+        [1], [], [2, 5], [6]
     ],
     'VGG16_CIFAR10': [
         [2], [8], [8], [8], [8],
@@ -102,14 +102,14 @@ retrain_milestones = retrain_milestones_list[net_and_data]
 # When accuracy in test dataset is more than max_accuracy, save the model
 train_max_accuracy_list = {
     'LeNet_MNIST': 99.15,
-    'AlexNet_CIFAR10': 89.5,
+    'AlexNet_CIFAR10': 89,
     'VGG16_CIFAR10': 90.3,
     'AlexNet_CIFAR100': 87.9,
     'VGG16_CIFAR100': 90
 }
 retrain_max_accuracy_list = {
     'LeNet_MNIST': 99.25,
-    'AlexNet_CIFAR10': 89.32,
+    'AlexNet_CIFAR10': 88.81,
     'VGG16_CIFAR10': 90.27,
     'AlexNet_CIFAR100': 90,
     'VGG16_CIFAR100': 91
@@ -123,14 +123,10 @@ retrain_mode_list = {
         {'mode': 'full', 'retrain_epoch': 10}
     ],
     'AlexNet_CIFAR10': [
-        {'mode': 'fc', 'retrain_epoch': 10},
-        {'mode': 'fc', 'retrain_epoch': 10},
-        {'mode': 'fc', 'retrain_epoch': 10},
-        {'mode': 'fc', 'retrain_epoch': 10},
-        {'mode': 'fc', 'retrain_epoch': 10},
-        {'mode': 'fc', 'retrain_epoch': 10},
+        {'mode': 'fc', 'retrain_epoch': 5},
+        {'mode': 'fc', 'retrain_epoch': 36},
         {'mode': 'conv', 'retrain_epoch': 10},
-        {'mode': 'conv', 'retrain_epoch': 10},
+        {'mode': 'conv', 'retrain_epoch': 15},
     ],
     'VGG16_CIFAR10': [
         {'mode': 'fc', 'retrain_epoch': 10},
@@ -190,7 +186,7 @@ lr = lr_list[net_and_data]
 
 train_milestones_list = {
     'LeNet_MNIST': [],
-    'AlexNet_CIFAR10': [30],
+    'AlexNet_CIFAR10': [20],
     'VGG16_CIFAR10': [32, 50],
     'AlexNet_CIFAR100': [16],
     'VGG16_CIFAR100': [32, 50]
