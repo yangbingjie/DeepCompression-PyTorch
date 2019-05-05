@@ -275,11 +275,9 @@ def train_codebook(key_parameter, use_cuda, max_conv_bit, max_fc_bit, conv_layer
             # TODO delete=========
             # break
             i += 1
-            if i % 100 == 0:
+            if i % 5000 == 0:
                 print('\n')
                 test(use_cuda, testloader, net, top_5)
-            if i > 20000:
-                break
             # ==================
 
         # mean_train_loss = np.mean(train_loss)

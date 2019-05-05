@@ -54,7 +54,7 @@ test_batch_size = 32
 parallel_gpu = False
 lr_list = {
     'LeNet': 1e-5,
-    'AlexNet': 1e-5,
+    'AlexNet': 1e-6 * 5,
     'VGG16': 1e-6 * 5
 }
 lr = lr_list[net_name]
