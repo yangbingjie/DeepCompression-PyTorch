@@ -3,7 +3,7 @@ import torch.nn.functional as F
 
 
 class AlexNet(nn.Module):
-    def __init__(self, params = None, num_classes=1000):
+    def __init__(self, params=None, num_classes=1000):
         super(AlexNet, self).__init__()
         self.conv1 = nn.Conv2d(3, 64, kernel_size=11, stride=4, padding=2)
         self.conv2 = nn.Conv2d(64, 192, kernel_size=5, padding=2)

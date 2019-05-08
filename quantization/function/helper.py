@@ -252,9 +252,9 @@ def train_codebook(key_parameter, use_cuda, max_conv_bit, max_fc_bit, conv_layer
     for epoch in range(epoch):  # loop over the dataset multiple times
         train_loss = []
         net.train()
-        i = 0
-        for inputs, labels in tqdm(trainloader):
-        # for inputs, labels in trainloader:
+        # i = 0
+        # for inputs, labels in tqdm(trainloader):
+        for inputs, labels in trainloader:
             # get the inputs
             if use_cuda:
                 inputs = inputs.cuda()
@@ -274,10 +274,9 @@ def train_codebook(key_parameter, use_cuda, max_conv_bit, max_fc_bit, conv_layer
 
             # TODO delete=========
             # break
-            i += 1
-            if i % 5000 == 0:
-                print('\n')
-                test(use_cuda, testloader, net, top_5)
+            # i += 1
+            # if i % 10000 == 0:
+            #     test(use_cuda, testloader, net, top_5)
             # ==================
 
         # mean_train_loss = np.mean(train_loss)

@@ -17,8 +17,8 @@ from pruning.net.PruneAlexNet import PruneAlexNet
 import torch.optim.lr_scheduler as lr_scheduler
 from pruning.function.helper import load_dataset
 from quantization.function.weight_share import share_weight
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
+# os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 parser = argparse.ArgumentParser()
 parser.add_argument("net", help="Network name", type=str)  # LeNet, Alexnet VGG16
 parser.add_argument("data", help="Dataset name", type=str)  # MNIST CIFAR10 CIFAR100
@@ -41,7 +41,7 @@ retrain_codebook_root = './quantization/result/'
 if not os.path.exists(retrain_codebook_root):
     os.mkdir(retrain_codebook_root)
 retrain_codebook_name = net_and_data + '_codebook'
-retrain_epoch = 1
+retrain_epoch = 10
 learning_rate_decay_list = {
     'LeNet': 1e-5,
     'AlexNet': 1e-3,
