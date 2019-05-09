@@ -256,7 +256,11 @@ if not os.path.exists(train_path):
                              train_max_accuracy,auto_save=False,
                              epoch=train_epoch, use_cuda=use_cuda, top_5=top_5)
     torch.save(net.state_dict(), train_path)
-net.load_state_dict(torch.load(train_path))
+
+if use_cuda:
+    net.load_state_dict(torch.load(train_path))
+else:
+    net.load_state_dict(torch.load(train_path, map_location='cpu'))
 if net_name == 'LeNet':
     unit = 'K'
 else:
