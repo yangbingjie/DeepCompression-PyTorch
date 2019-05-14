@@ -10,7 +10,7 @@ import encode.function.encode as encode
 import json
 
 use_cuda = False  # torch.cuda.is_available()
-quantization_result_path = './quantization/result/LeNet_codebook.pth'
+quantization_result_path = './quantization/result/LeNet_MNIST_codebook.pth'
 encode_huffman_root = './encode/result/'
 if not os.path.exists(encode_huffman_root):
     os.mkdir(encode_huffman_root)
@@ -50,33 +50,37 @@ layer_nz_num = nz_num[0::2] + nz_num[1::2]
 half_conv_layer_num = int(conv_layer_num / 2)
 
 huffman_map_dict = {}
-outputs_str = ''
+outputs_str = 0
 for i in range(len(symbol_list)):
     index = 0
     layer_nz = layer_nz_num[:half_conv_layer_num] if i < 2 else layer_nz_num[half_conv_layer_num:]
     for j in range(len(layer_nz)):
+        print(i, j)
         inputs = symbol_list[i][index:index + layer_nz[j]]
         index += layer_nz[j]
+        print(len(inputs))
         symbol_probability = encode.compute_symbol_probability(inputs)
+        print(sorted(symbol_probability.items()))
         huffman_map = encode.encode_huffman(symbol_probability.items())
-        outputs = encode.encode_data(inputs, huffman_map)
-        keys = list(huffman_map.keys()).copy()
-        for key in keys:
-            huffman_map[str(key)] = huffman_map.pop(key)
-        huffman_map_dict[str(i)+'_'+str(j)] = huffman_map
-        for output in outputs:
-            outputs_str += output
-
-outputs_str += '0' * (8 - (len(outputs_str) & 0x7))
-outputs_arr = np.zeros(len(outputs_str) >> 3,dtype=np.uint8)
-for i in range(len(outputs_str) >> 3):
-    outputs_arr[i] = int(outputs_str[i<<3: (i<<3) + 8],2)
-
-nz_num.dtype = np.uint8
-codebook_value.dtype = np.uint8
-save_obj = np.concatenate((nz_num, codebook_value,outputs_arr))
-save_obj.tofile(encode_codebook_path)
-#print(huffman_map_dict)
-with open(encode_huffman_map_path,'w') as file:
-    huffman_map_str = json.dumps(huffman_map_dict)
-    file.write(huffman_map_str)
+        print(huffman_map)
+#         outputs = encode.encode_data(inputs, huffman_map)
+#         keys = list(huffman_map.keys()).copy()
+#         for key in keys:
+#             huffman_map[str(key)] = huffman_map.pop(key)
+#         huffman_map_dict[str(i)+'_'+str(j)] = huffman_map
+#         for output in outputs:
+#             outputs_str += output
+#
+# outputs_str += '0' * (8 - (len(outputs_str) & 0x7))
+# outputs_arr = np.zeros(len(outputs_str) >> 3,dtype=np.uint8)
+# for i in range(len(outputs_str) >> 3):
+#     outputs_arr[i] = int(outputs_str[i<<3: (i<<3) + 8],2)
+#
+# nz_num.dtype = np.uint8
+# codebook_value.dtype = np.uint8
+# save_obj = np.concatenate((nz_num, codebook_value,outputs_arr))
+# save_obj.tofile(encode_codebook_path)
+# #print(huffman_map_dict)
+# with open(encode_huffman_map_path,'w') as file:
+#     huffman_map_str = json.dumps(huffman_map_dict)
+#     file.write(huffman_map_str)

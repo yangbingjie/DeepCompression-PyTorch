@@ -41,7 +41,7 @@ retrain_codebook_root = './quantization/result/'
 if not os.path.exists(retrain_codebook_root):
     os.mkdir(retrain_codebook_root)
 retrain_codebook_name = net_and_data + '_codebook'
-retrain_epoch = 10
+retrain_epoch = 20
 learning_rate_decay_list = {
     'LeNet': 1e-5,
     'AlexNet': 1e-3,
@@ -54,7 +54,7 @@ test_batch_size = 32
 parallel_gpu = False
 lr_list = {
     'LeNet': 1e-5,
-    'AlexNet': 1e-6 * 5,
+    'AlexNet': 1e-5,
     'VGG16': 1e-6 * 5
 }
 lr = lr_list[net_name]
@@ -100,7 +100,7 @@ elif net_name == 'VGG16':
 
 num_workers_list = {
     'LeNet': 16,
-    'AlexNet': 16,
+    'AlexNet': 32,
     'VGG16': 32
 }
 num_workers = num_workers_list[net_name]
@@ -142,8 +142,8 @@ else:
     optimizer = optim.SGD(net.parameters(), lr=lr, momentum=0.9, weight_decay=learning_rate_decay)
     retrain_milestones_list = {
         'LeNet': [2],
-        'AlexNet': [2],
-        'VGG16': [2]
+        'AlexNet': [5],
+        'VGG16': [5]
     }
     retrain_milestones = retrain_milestones_list[net_name]
     print('Begin fine tune')
