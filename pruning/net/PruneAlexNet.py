@@ -1,6 +1,6 @@
 import torch.nn as nn
 import torch.nn.functional as F
-import pruning.function.Prune as prune
+import pruning.function.prune as prune
 
 
 class PruneAlexNet(prune.PruneModule):

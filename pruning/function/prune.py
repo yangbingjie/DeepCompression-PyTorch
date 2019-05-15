@@ -6,7 +6,7 @@ from torch.nn.modules.module import Module
 
 
 class MaskModule(Module):
-    def prune(self, threshold, use_cuda=True, bias_threshold=None):
+    def prune_theshold(self, threshold, use_cuda=True, bias_threshold=None):
         zero_weight = torch.zeros_like(self.weight.data).float()
         if use_cuda:
             zero_weight = zero_weight.cuda()
@@ -22,6 +22,21 @@ class MaskModule(Module):
             new_bias_mask = torch.where(abs(self.bias.data) < bias_threshold, zero_bias, self.bias_mask.float())
             self.bias.data = self.bias * new_bias_mask.float()
             self.bias_mask.data = new_bias_mask
+
+    def prune_by_percent_once(self, percent, use_cuda):
+        # Put the weights that aren't masked out in sorted order.
+        sorted_weights = torch.sort(torch.abs(self.weight.data[self.weight_mask.data == 1]))
+
+        # Determine the cutoff for weights to be pruned.
+        cutoff_index = math.ceil(percent * torch.numel(sorted_weights[0]))
+        cutoff = (sorted_weights[0][cutoff_index]).item()
+
+        sorted_bias = torch.sort(torch.abs(self.bias.data[self.bias_mask.data == 1]))
+        bias_cutoff_index = math.ceil(percent * torch.numel(sorted_bias[0]))
+        bias_cutoff = (sorted_bias[0][bias_cutoff_index]).item()
+
+        # Prune all weights below the cutoff.
+        self.prune_theshold(cutoff, use_cuda, bias_cutoff)
 
 
 class MaskLinearModule(MaskModule):
@@ -126,7 +141,7 @@ class PruneModule(Module):
     # 'not': is not retrain
     # 'conv': retrain conv layer, fix fc layer
     # 'fc': retrain fc layer, fix conv layer
-    def prune_layer(self, sensitivity=None, use_cuda=True, prune_mode='full'):
+    def prune_by_std(self, sensitivity=None, use_cuda=True, prune_mode='full'):
         prune_mode_list = ['full', 'conv', 'fc']
         if prune_mode not in prune_mode_list:
             return
@@ -153,7 +168,12 @@ class PruneModule(Module):
                 threshold = torch.std(filter_weight) * s
                 filter_bias = torch.masked_select(module.bias, module.bias_mask.byte())
                 bias_threshold = torch.std(filter_bias) * s
-                module.prune(threshold, use_cuda, bias_threshold)
+                module.prune_theshold(threshold, use_cuda, bias_threshold)
+
+    def prune_by_percent(self, percents, prune_num, use_cuda):
+        for i, (name, module) in enumerate(self.named_modules()):
+            if name != '':
+                module.prune_by_percent_once(1 - math.pow(percents, 1 / prune_num), use_cuda)
 
     # fix_mode: fix 'conv' or 'fc'
     # 'not': is not retrain
@@ -170,3 +190,4 @@ class PruneModule(Module):
                 p.requires_grad = False
             else:
                 p.requires_grad = True
+

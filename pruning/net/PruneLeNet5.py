@@ -1,5 +1,5 @@
 import torch.nn.functional as F
-import pruning.function.Prune as prune
+import pruning.function.prune as prune
 
 
 class PruneLeNet5(prune.PruneModule):
@@ -10,7 +10,6 @@ class PruneLeNet5(prune.PruneModule):
         self.fc1 = prune.MaskLinearModule(4 * 4 * 50, 500)
         self.fc2 = prune.MaskLinearModule(500, 10)
 
-
     def forward(self, x):
         x = F.relu(self.conv1(x))
         x = F.max_pool2d(x, 2, 2)
@@ -20,7 +19,6 @@ class PruneLeNet5(prune.PruneModule):
         x = F.relu(self.fc1(x))
         x = self.fc2(x)
         return x
-
 
     def num_flat_features(self, x):
         size = x.size()[1:]

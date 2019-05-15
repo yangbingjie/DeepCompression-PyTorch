@@ -41,7 +41,7 @@ retrain_codebook_root = './quantization/result/'
 if not os.path.exists(retrain_codebook_root):
     os.mkdir(retrain_codebook_root)
 retrain_codebook_name = net_and_data + '_codebook'
-retrain_epoch = 20
+retrain_epoch = 15
 learning_rate_decay_list = {
     'LeNet': 1e-5,
     'AlexNet': 1e-3,
@@ -49,6 +49,10 @@ learning_rate_decay_list = {
 }
 learning_rate_decay = learning_rate_decay_list[net_name]
 use_cuda = torch.cuda.is_available()
+if use_cuda:
+    print('USING CUDA')
+else:
+    print('USING CPU')
 train_batch_size = 1
 test_batch_size = 32
 parallel_gpu = False
@@ -148,9 +152,15 @@ else:
     retrain_milestones = retrain_milestones_list[net_name]
     print('Begin fine tune')
     scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=retrain_milestones, gamma=0.1)
-
-    helper.train_codebook(key_parameter, use_cuda, max_conv_bit, max_fc_bit, conv_layer_length, codebook,
-                          index_list, testloader, net, trainloader, criterion,
+    max_accuracy_list = {
+        'LeNet': 99,
+        'AlexNet': 88.82,
+        'VGG16': 90.39
+    }
+    max_accuracy = max_accuracy_list[net_name]
+    helper.train_codebook(max_accuracy, nz_num, conv_diff, fc_diff, retrain_codebook_path,
+                          key_parameter, use_cuda, max_conv_bit, max_fc_bit, conv_layer_length,
+                          codebook, index_list, testloader, net, trainloader, criterion,
                           optimizer, scheduler, retrain_epoch, top_5)
 
     helper.save_codebook(conv_layer_length, nz_num, conv_diff, fc_diff, codebook, retrain_codebook_path, net)

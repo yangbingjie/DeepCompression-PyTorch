@@ -1,7 +1,7 @@
 import math
 import torch.nn as nn
 import torch.nn.functional as F
-import pruning.function.Prune as prune
+import pruning.function.prune as prune
 
 cfg = {
     'A': [64, 'M', 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],

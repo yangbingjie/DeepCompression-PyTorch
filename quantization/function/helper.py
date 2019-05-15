@@ -246,7 +246,7 @@ def update_codebook(net, codebook, conv_layer_length, max_conv_bit, max_fc_bit, 
                 codebook_centroids[j] = layer[tmp]
 
 
-def train_codebook(key_parameter, use_cuda, max_conv_bit, max_fc_bit, conv_layer_length,
+def train_codebook(max_accuracy, nz_num, conv_diff, fc_diff, retrain_codebook_path, key_parameter, use_cuda, max_conv_bit, max_fc_bit, conv_layer_length,
                    codebook, index_list, testloader, net, trainloader, criterion, optimizer,
                    scheduler, epoch=1, top_5=False):
     for epoch in range(epoch):  # loop over the dataset multiple times
@@ -272,18 +272,14 @@ def train_codebook(key_parameter, use_cuda, max_conv_bit, max_fc_bit, conv_layer
             optimizer.step()  # update weight
             train_loss.append(loss.item())
 
-            # TODO delete=========
-            # break
-            # i += 1
-            # if i % 10000 == 0:
-            #     test(use_cuda, testloader, net, top_5)
-            # ==================
-
         # mean_train_loss = np.mean(train_loss)
         # print("Epoch:", epoch, "Training Loss: %5f" % mean_train_loss)
-        test(use_cuda, testloader, net, top_5)
+        accuracy = test(use_cuda, testloader, net, top_5)
         scheduler.step()
     update_codebook(net, codebook, conv_layer_length, max_conv_bit, max_fc_bit, key_parameter)
+    if accuracy > max_accuracy:
+       save_codebook(conv_layer_length, nz_num, conv_diff, fc_diff, codebook, retrain_codebook_path, net)
+       max_accuracy = accuracy
 
 
 def save_codebook(conv_layer_length, nz_num, conv_diff, fc_diff, codebook, path, net):

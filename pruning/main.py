@@ -279,7 +279,8 @@ for j in range(len(retrain_mode_type)):
                                          retrain_milestones[-1],
                                          gamma=0.1)
     retrain_mode = retrain_mode_type[j]['mode']
-    net.prune_layer(prune_mode=retrain_mode, use_cuda=use_cuda, sensitivity=sensitivity)
+    # net.prune_by_std(prune_mode=retrain_mode, use_cuda=use_cuda, sensitivity=sensitivity)
+    net.prune_by_percent(0.09, len(retrain_mode_type), use_cuda=use_cuda)
     if hasattr(net, 'drop_rate') and retrain_mode == 'fc':
         net.compute_dropout_rate()
     print('====================== Retrain', j, retrain_mode, 'Start ==================')
