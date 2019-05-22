@@ -33,7 +33,10 @@ class MaskModule(Module):
 
         sorted_bias = torch.sort(torch.abs(self.bias.data[self.bias_mask.data == 1]))
         bias_cutoff_index = math.ceil(percent * torch.numel(sorted_bias[0]))
-        bias_cutoff = (sorted_bias[0][bias_cutoff_index]).item()
+        if len(sorted_bias[0]) > 0 and bias_cutoff_index < len(sorted_bias[0]):
+            bias_cutoff = (sorted_bias[0][bias_cutoff_index]).item()
+        else:
+            bias_cutoff = 0
 
         # Prune all weights below the cutoff.
         self.prune_theshold(cutoff, use_cuda, bias_cutoff)

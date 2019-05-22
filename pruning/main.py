@@ -120,6 +120,8 @@ retrain_mode_list = {
     'LeNet_MNIST': [
         {'mode': 'full', 'retrain_epoch': 6},
         {'mode': 'full', 'retrain_epoch': 6},
+        {'mode': 'full', 'retrain_epoch': 6},
+        {'mode': 'full', 'retrain_epoch': 6},
         {'mode': 'full', 'retrain_epoch': 10}
     ],
     'AlexNet_CIFAR10': [
